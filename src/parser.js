@@ -1,4 +1,4 @@
-import { buildTokenRegex } from './compiler.js';
+import { buildTokenRegex } from './utils.js';
 
 /**
  * parseInput()
