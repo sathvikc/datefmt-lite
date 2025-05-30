@@ -1,4 +1,3 @@
-// Month names for MMMM and MMM tokens
 export const MONTH_NAMES = [
   'January',
   'February',
@@ -14,20 +13,19 @@ export const MONTH_NAMES = [
   'December',
 ];
 
-// Pure conversion handlers—no internal validation
 export const DEFAULT_HANDLERS = {
   yyyy: (p) => String(p.year).padStart(4, '0'),
-  yy:   (p) => String(p.year).slice(-2),
+  yy: (p) => String(p.year).slice(-2),
   MMMM: (p) => MONTH_NAMES[p.month - 1],
-  MMM:  (p) => MONTH_NAMES[p.month - 1].slice(0, 3),
-  MM:   (p) => String(p.month).padStart(2, '0'),
-  M:    (p) => String(p.month),
-  dd:   (p) => String(p.day).padStart(2, '0'),
-  d:    (p) => String(p.day),
-  HH:   (p) => String(p.hour).padStart(2, '0'),
-  H:    (p) => String(p.hour),
-  mm:   (p) => String(p.minute).padStart(2, '0'),
-  m:    (p) => String(p.minute),
-  ss:   (p) => String(p.second).padStart(2, '0'),
-  s:    (p) => String(p.second),
+  MMM: (p) => MONTH_NAMES[p.month - 1].slice(0, 3),
+  MM: (p) => String(p.month).padStart(2, '0'),
+  M: (p) => String(p.month),
+  dd: (p) => String(p.day).padStart(2, '0'),
+  d: (p) => String(p.day),
+  HH: (p) => String(p.hour).padStart(2, '0'),
+  H: (p) => String(p.hour),
+  mm: (p) => String(p.minute).padStart(2, '0'),
+  m: (p) => String(p.minute),
+  ss: (p) => String(p.second).padStart(2, '0'),
+  s: (p) => String(p.second),
 };
