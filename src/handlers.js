@@ -1,3 +1,9 @@
+/**
+ * Month names used by `MMMM` and `MMM` tokens.
+ * Indexing is 1-based (`month = 1` maps to 'January').
+ *
+ * @constant {string[]}
+ */
 export const MONTH_NAMES = [
   'January',
   'February',
@@ -13,6 +19,19 @@ export const MONTH_NAMES = [
   'December',
 ];
 
+/**
+ * Built-in token renderers for `buildTemplate()`.
+ * Each token maps to a function that receives a `dateParts` object and returns a string.
+ * These functions assume valid numeric fields; no internal validation is performed.
+ *
+ * @type {Object<string, (dateParts: Object) => string>}
+ *
+ * @example
+ * // Given: { year: 2025, month: 4, day: 9, hour: 7, minute: 5, second: 3 }
+ * // Token "dd" → "09"
+ * // Token "MMM" → "Apr"
+ * // Token "yyyy" → "2025"
+ */
 export const DEFAULT_HANDLERS = {
   yyyy: (p) => String(p.year).padStart(4, '0'),
   yy: (p) => String(p.year).slice(-2),
