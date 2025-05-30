@@ -161,6 +161,12 @@ See [`/docs`](./docs/) for:
 
 ---
 
+## 📓 Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history, breaking changes, and upgrade notes.
+
+---
+
 ## 📄 License
 
 MIT © 2025
