@@ -6,7 +6,7 @@ import { terser } from 'rollup-plugin-terser';
 export default [
   {
     input: 'src/index.js',
-    output: { file: 'dist/index.cjs.js', format: 'cjs', exports: 'named' },
+    output: { file: 'dist/cjs/index.cjs.js', format: 'cjs', exports: 'named' },
     plugins: [
       // 1) let Rollup resolve ./compiler.js, ./parser.js, etc.
       resolve({ extensions: ['.js', '.mjs'] }),
@@ -24,7 +24,7 @@ export default [
   },
   {
     input: 'src/index.js',
-    output: { file: 'dist/index.esm.js', format: 'esm' },
+    output: { file: 'dist/esm/index.esm.js', format: 'esm' },
     plugins: [
       resolve({ extensions: ['.js', '.mjs'] }),
       commonjs(),
