@@ -1,6 +1,6 @@
 {
   "name": "datefmt-lite",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "description": "Lightweight string‑to‑string date format converter with pluggable tokens",
   "main": "dist/cjs/index.cjs.js",

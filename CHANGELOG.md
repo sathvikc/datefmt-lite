@@ -1,6 +1,21 @@
 # Changelog
 
-## \[2.0.0] - 2025-05-30
+## [2.1.0] – 2025-05-30
+
+### 🛠 Fixes & Refactorings
+- Centralized all token metadata in a single `TOKEN_REGISTRY` in `handlers.js`  
+- Auto-generated `DEFAULT_HANDLERS` and `TOKEN_FIELD_MAP` from `TOKEN_REGISTRY`  
+- Updated `formatter.js` and `validateOutput.js` to import and use `TOKEN_FIELD_MAP` rather than inline maps  
+- **Bugfix**: “Cannot produce token `MMM`” error no longer throws when formatting `MMM` if only `MM` was parsed  
+- Added missing `normalizeFields` test case covering single-digit seconds (`s`) branch  
+- Added `formatter.test.js` case for `formatDate('20250425', 'yyyyMMdd', 'MMM dd, yyyy') → 'Apr 25, 2025'`
+- Added public TypeScript definitions under `types/index.d.ts`  
+- Added complete JSDoc and inline comments across all core modules  
+- `CHANGELOG.md` and link from `README.md`
+
+---
+
+## [2.0.0] - 2025-05-30
 
 ### ✨ What’s New
 
