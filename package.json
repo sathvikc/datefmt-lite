@@ -5,6 +5,7 @@
   "description": "Lightweight string‑to‑string date format converter with pluggable tokens",
   "main": "dist/cjs/index.cjs.js",
   "module": "dist/esm/index.esm.js",
+  "types": "types/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/esm/index.esm.js",
@@ -25,6 +26,7 @@
   },
   "files": [
     "dist",
+    "types",
     "README.md",
     "package.json"
   ],
