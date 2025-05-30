@@ -1,3 +1,4 @@
+import { TOKEN_FIELD_MAP } from './handlers.js';
 import { buildTokenRegex, extractAllTokensFromFormat } from './utils.js';
 
 /**
@@ -58,13 +59,26 @@ export function validateOutput({
     }
   }
 
-  // Determine what we are capable of rendering
+  // start with any token you actually parsed or provided
   const produceable = new Set([
     ...parsedTokens,
     ...Object.keys(userOverrides),
     ...Object.keys(customTokens),
     ...defaultTokenKeys,
   ]);
+
+  // for each semantic field, if you have *any* token in that group, allow all of them
+  const groups = Object.entries(TOKEN_FIELD_MAP).reduce((acc, [tok, field]) => {
+    acc[field] = acc[field] || [];
+    acc[field].push(tok);
+    return acc;
+  }, {});
+
+  for (const field of Object.keys(groups)) {
+    if (groups[field].some((tok) => produceable.has(tok))) {
+      for (const tok of groups[field]) produceable.add(tok);
+    }
+  }
 
   const needed = [...sanitized.matchAll(tokenRE)].map((m) => m[0]);
 
