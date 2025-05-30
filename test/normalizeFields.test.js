@@ -112,4 +112,12 @@ describe('normalizeFields', () => {
       normalizeFields(tokens, { yearConverter: badConverter })
     ).toThrow('converter failed');
   });
+
+  it('should map single-digit seconds token correctly', () => {
+    const parts = normalizeFields(
+      { tokens: ['s'], s: '7' }
+    );
+    expect(parts.second).toBe(7);
+    expect(parts.tokens).toEqual(['s']);
+  });
 });

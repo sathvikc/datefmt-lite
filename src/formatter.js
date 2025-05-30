@@ -2,7 +2,7 @@ import { extractTokens } from './extractTokens.js';
 import { normalizeFields } from './normalizeFields.js';
 import { validateOutput } from './validateOutput.js';
 import { buildTemplate } from './buildTemplate.js';
-import { DEFAULT_HANDLERS } from './handlers.js';
+import { DEFAULT_HANDLERS, TOKEN_FIELD_MAP } from './handlers.js';
 
 /**
  * Converts a date string from one format to another using token-based parsing and rendering.
@@ -73,24 +73,8 @@ export function formatDate(
 
   // In silent mode, fallback to raw token name if data is missing
   if (errorPolicy === 'silent') {
-    const tokenFieldMap = {
-      yyyy: 'year',
-      yy: 'year',
-      MMMM: 'month',
-      MMM: 'month',
-      MM: 'month',
-      M: 'month',
-      dd: 'day',
-      d: 'day',
-      HH: 'hour',
-      H: 'hour',
-      mm: 'minute',
-      m: 'minute',
-      ss: 'second',
-      s: 'second',
-    };
     for (const tok of parsedTokens) {
-      const field = tokenFieldMap[tok];
+      const field = TOKEN_FIELD_MAP[tok];
       if (field && dateParts[field] == null) {
         overrides[tok] = tok; // fallback to token name
       }

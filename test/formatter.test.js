@@ -7,6 +7,10 @@ describe('formatDate()', () => {
     expect(formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy')).toBe('25/04/2025');
   });
 
+  it('should handle converting parsed month token into abbreviated MMM output', () => {
+    expect(formatDate('20250425', 'yyyyMMdd', 'MMM dd, yyyy')).toBe('Apr 25, 2025');
+  });
+
   it('should preserve literal tokens in the format', () => {
     expect(
       formatDate('20250425T101010', 'yyyyMMddTHHmmss', 'dd-MM-yyyy [at] HH:mm')

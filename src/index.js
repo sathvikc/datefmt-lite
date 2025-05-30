@@ -1,5 +1,3 @@
-export { DEFAULT_HANDLERS } from './handlers.js';
-
 export { extractTokens } from './extractTokens.js';
 export { normalizeFields } from './normalizeFields.js';
 export { validateOutput } from './validateOutput.js';
