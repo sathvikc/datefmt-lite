@@ -1,39 +1,41 @@
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import babel from '@rollup/plugin-babel';
-import { terser } from 'rollup-plugin-terser';
+import { babel } from '@rollup/plugin-babel';
+import terser from '@rollup/plugin-terser';
 
-export default [
-  {
-    input: 'src/index.js',
-    output: { file: 'dist/cjs/index.cjs.js', format: 'cjs', exports: 'named' },
-    plugins: [
-      // 1) let Rollup resolve ./compiler.js, ./parser.js, etc.
-      resolve({ extensions: ['.js', '.mjs'] }),
-      // 2) convert any CommonJS deps (if you ever import one)
-      commonjs(),
-      // 3) transpile (but keep import/export intact)
-      babel({
-        babelHelpers: 'bundled',
-        extensions: ['.js', '.mjs'],
-        exclude: 'node_modules/**',
-      }),
-      // 4) minify
-      terser(),
-    ],
+const extensions = ['.js', '.mjs'];
+
+export default {
+  input: 'src/index.js',
+  // The library has zero runtime dependencies by design. Without node-resolve,
+  // an accidental bare import would otherwise be emitted unresolved and ship
+  // green, so fail the build instead.
+  onwarn(warning, warn) {
+    if (warning.code === 'UNRESOLVED_IMPORT') {
+      throw new Error(
+        `Unresolved import "${warning.source}" from "${warning.importer}". ` +
+          `datefmt-lite must stay dependency-free; use a relative path or ` +
+          `add a bundler plugin plus a real dependency.`,
+      );
+    }
+    warn(warning);
   },
-  {
-    input: 'src/index.js',
-    output: { file: 'dist/esm/index.esm.js', format: 'esm' },
-    plugins: [
-      resolve({ extensions: ['.js', '.mjs'] }),
-      commonjs(),
-      babel({
-        babelHelpers: 'bundled',
-        extensions: ['.js', '.mjs'],
-        exclude: 'node_modules/**',
-      }),
-      terser(),
-    ],
-  },
-];
+  plugins: [
+    babel({
+      babelHelpers: 'bundled',
+      extensions,
+      exclude: 'node_modules/**',
+    }),
+  ],
+  output: [
+    {
+      file: 'dist/cjs/index.cjs',
+      format: 'cjs',
+      exports: 'named',
+      plugins: [terser()],
+    },
+    {
+      file: 'dist/esm/index.esm.js',
+      format: 'esm',
+      plugins: [terser()],
+    },
+  ],
+};
