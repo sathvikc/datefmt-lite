@@ -14,13 +14,13 @@ extractTokens → normalizeFields → validateOutput → buildTemplate → rende
 
 ### 1. `extractTokens(inputDate, inputFormat, handlers)`
 
-Parses `inputDate` into raw pieces based on `inputFormat` tokens. Returns:
+Parses `inputDate` into raw pieces based on `inputFormat` tokens. Returns a flat
+map of token names to the digits that were read, plus the list of tokens that
+matched:
 
 ```js
-{
-  raw: { yyyy: 2025, MM: 4, dd: 25 },
-  tokens: ['yyyy', 'MM', 'dd']
-}
+extractTokens('20250425', 'yyyyMMdd', handlers);
+// → { yyyy: '2025', MM: '04', dd: '25', tokens: ['yyyy', 'MM', 'dd'] }
 ```
 
 ### 2. `normalizeFields(rawMap, options)`

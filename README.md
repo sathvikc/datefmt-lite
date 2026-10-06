@@ -165,4 +165,4 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history, breaking changes, and up
 
 ## 📄 License
 
-MIT © 2025
+MIT © 2026

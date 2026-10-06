@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.1.1]
+## [2.2.0] – 2026-10-05
 
 ### 📦 Packaging
 
@@ -40,16 +40,30 @@
 - CI on Node 20/22/24: formatting, lint, typecheck, tests with coverage, build,
   and dist verification, plus a publish dry run.
 - `npm run verify` runs the whole chain.
-- `npm run test:dist` checks the exports map resolves for both entrypoints, that
-  the public API is intact, that six concrete behaviours still hold, and that
-  the bundle stays within a 2,560 B gzipped budget.
+- `npm run test:dist` checks the exports map resolves for both entrypoints and
+  that each resolves to its own bundle, that the public API is intact, that six
+  concrete behaviours still hold, and that the two bundles together stay within
+  a 4,096 B gzipped budget.
 - Added eslint, prettier and TypeScript configuration.
+
+### ➕ Additive
+
+Nothing below removes or changes an existing runtime behaviour. These are new
+capabilities, which is why this is a minor rather than a patch release:
+
+- The `exports` map gained `types` and `default` conditions, plus a
+  `./package.json` subpath, so TypeScript under `node16`/`nodenext` and
+  bundler resolution now find the declarations.
+- `sideEffects: false` tells consumer bundlers the modules are pure, so
+  tree-shaking is safe.
+- `docs/`, `CHANGELOG.md` and `LICENSE` are now published, so the README's
+  documentation links resolve instead of 404ing.
 
 ### ⚠️ Runtime behaviour is unchanged from 2.1.0
 
 Verified by running a large generated corpus through both this version and 2.1.0:
-identical output and identical thrown errors throughout. A separate, larger
-rewrite is planned for v3.
+identical output and identical thrown errors throughout. The 112 original tests
+pass unmodified. A separate, larger rewrite is planned for v3.
 
 ## [2.1.0] – 2025-05-30
 
