@@ -70,10 +70,14 @@ export function buildTokenizer(tokens) {
   const tokenSet = new Set(
     [...tokens].filter((name) => typeof name === 'string' && name),
   );
-  const suffix = ` ${[...tokenSet].sort().join(',')}`;
+
+  // Length-prefixed so no two distinct (format, vocabulary) pairs can produce
+  // the same key. A plain `format + separator + names` is ambiguous: a token
+  // name may contain the separator, letting one call evict another's entry.
+  const suffix = `\u0000${tokenSet.size}\u0000${[...tokenSet].sort().join('\u0000')}`;
 
   return (format) => {
-    const key = format + suffix;
+    const key = `${format.length}\u0000${format}${suffix}`;
 
     const cached = tokenizeCache.get(key);
     if (cached !== undefined) return cached;
@@ -85,7 +89,12 @@ export function buildTokenizer(tokens) {
     if (tokenizeCache.size >= TOKENIZE_CACHE_LIMIT) {
       tokenizeCache.delete(tokenizeCache.keys().next().value);
     }
-    tokenizeCache.set(key, Object.freeze(segments));
+    // Each segment is frozen too: a shallow freeze would leave `value` writable,
+    // letting one caller poison the cached result for every later caller.
+    tokenizeCache.set(
+      key,
+      Object.freeze(segments.map((segment) => Object.freeze(segment))),
+    );
 
     return tokenizeCache.get(key);
   };
@@ -176,19 +185,8 @@ export function tokenizeFormat(format, tokens) {
  * @returns {string}
  */
 function tokenizerKey(tokens) {
-  if (Array.isArray(tokens)) {
-    const memoized = tokenizerKeyCache.get(tokens);
-    if (memoized !== undefined) return memoized;
-
-    const built = [...new Set(tokens)]
-      .filter((name) => typeof name === 'string' && name)
-      .sort()
-      .join(',');
-
-    tokenizerKeyCache.set(tokens, built);
-    return built;
-  }
-
+  // Derived from the contents, never from the collection's identity: a caller
+  // that mutates an array between calls must not get a stale cached result.
   return [...new Set(tokens)]
     .filter((name) => typeof name === 'string' && name)
     .sort()
@@ -197,15 +195,6 @@ function tokenizerKey(tokens) {
 
 /** Tokenizers retained per vocabulary, so the key is not rebuilt per call. */
 const tokenizerCache = new Map();
-
-/**
- * Keys memoized by the identity of the token collection.
- *
- * Callers that pass the same array repeatedly — a constant vocabulary, for
- * instance — then skip sorting and joining on every call, which measured as the
- * dominant remaining cost. Weak so a discarded vocabulary can be collected.
- */
-const tokenizerKeyCache = new WeakMap();
 
 /**
  * Tokenize without consulting the cache.

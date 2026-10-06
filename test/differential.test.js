@@ -2,7 +2,12 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { formatDate } from '../src/index.js';
+import {
+  DEFAULT_HANDLERS,
+  buildTemplate,
+  formatDate,
+  tokenizeFormat,
+} from '../src/index.js';
 
 // jest transforms tests to CommonJS, so `import.meta` is unavailable here.
 const root = resolve(process.cwd());
@@ -277,17 +282,56 @@ describe('caching is transparent', () => {
     );
   });
 
-  it('handles many distinct formats without unbounded growth', () => {
-    // Exceeds the cache cap repeatedly; correctness must hold regardless.
+  it('handles far more distinct formats than the cache cap', () => {
+    // The cap is 256, so 2000 genuinely distinct formats force repeated
+    // eviction. An earlier version produced only ten distinct formats and so
+    // never reached the cap.
     for (let i = 0; i < 2000; i += 1) {
-      const format = `yyyy${'-'.repeat(0)}MM${i % 10}`;
-      expect(
-        formatDate('20250425', 'yyyyMMdd', format, {
-          errorPolicy: 'silent',
-        }),
-      ).toContain('2025');
+      const out = formatDate('20250425', 'yyyyMMdd', `yyyy/MM/dd#${i}`, {
+        errorPolicy: 'silent',
+      });
+      expect(out).toContain('2025');
     }
     // The original case must still work afterwards.
     expect(formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy')).toBe('25/04/2025');
+  });
+
+  it('cannot be poisoned through a crafted token name', () => {
+    // A cache key built from `format + separator + names` is ambiguous, because
+    // a token name may contain the separator. These two calls collide under such
+    // a key and must not under the length-prefixed one.
+    expect(tokenizeFormat('a', ['b c']).map((s) => s.value)).toEqual(['a']);
+    expect(tokenizeFormat('a b', ['c']).map((s) => s.value)).toEqual(['a b']);
+    expect(tokenizeFormat('a', ['b c']).map((s) => s.value)).toEqual(['a']);
+  });
+
+  it('reflects a mutated vocabulary rather than serving a stale entry', () => {
+    // Keyed by contents, never by the collection's identity.
+    const vocab = ['dd'];
+    expect(tokenizeFormat('ddMM', vocab).map((s) => s.value)).toEqual(['ddMM']);
+    vocab.push('MM');
+    expect(tokenizeFormat('ddMM', vocab).map((s) => s.value)).toEqual([
+      'dd',
+      'MM',
+    ]);
+  });
+
+  it('returns frozen segments that cannot be rewritten', () => {
+    const segments = tokenizeFormat('dd/MM', ['dd', 'MM']);
+    expect(() => {
+      segments[0].value = 'PWNED';
+    }).toThrow(TypeError);
+    expect(() => segments.push({ type: 'token', value: 'x' })).toThrow(
+      TypeError,
+    );
+    expect(tokenizeFormat('dd/MM', ['dd', 'MM'])[0].value).toBe('dd');
+  });
+
+  it('returns frozen plan steps that cannot be rewritten', () => {
+    const plan = buildTemplate('dd/MM', DEFAULT_HANDLERS);
+    expect(() => {
+      plan[0].value = 'PWNED';
+    }).toThrow(TypeError);
+    expect(buildTemplate('dd/MM', DEFAULT_HANDLERS)[0].value).toBe('dd');
   });
 });

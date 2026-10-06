@@ -40,9 +40,11 @@ export function buildTemplate(outputFormat, handlers) {
   // The built-in vocabulary is by far the common case, and its tokenizer is
   // hoisted, so the plan is cached under a bare format key.
   const isBuiltin = table === DEFAULT_HANDLERS;
+  // Length-prefixed, so a format that happens to end like a vocabulary cannot
+  // collide with a different (format, vocabulary) pair.
   const key = isBuiltin
-    ? outputFormat
-    : `${outputFormat} ${Object.keys(table).sort().join(',')}`;
+    ? `${outputFormat.length}\u0000${outputFormat}`
+    : `${outputFormat.length}\u0000${outputFormat}\u0000${Object.keys(table).sort().join('\u0000')}`;
 
   const cached = planCache.get(key);
   if (cached !== undefined) return cached;
@@ -73,7 +75,9 @@ export function buildTemplate(outputFormat, handlers) {
   if (planCache.size >= PLAN_CACHE_LIMIT) {
     planCache.delete(planCache.keys().next().value);
   }
-  planCache.set(key, Object.freeze(steps));
+  // Each step is frozen as well as the array, so a caller cannot rewrite a
+  // cached plan's `value` and corrupt it for every later caller.
+  planCache.set(key, Object.freeze(steps.map((step) => Object.freeze(step))));
 
   return planCache.get(key);
 }

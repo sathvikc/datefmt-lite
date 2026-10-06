@@ -175,15 +175,20 @@ export function validateOutput(args: {
   strictTokens?: boolean;
 }): Record<string, TokenValue>;
 
-/** Compiles an output format into a reusable render plan. */
+/**
+ * Compiles an output format into a reusable render plan.
+ *
+ * The returned plan is cached and deeply frozen: mutating it throws rather than
+ * corrupting the cache for later callers.
+ */
 export function buildTemplate(
   outputFormat: string,
   handlers: Record<string, TokenValue>,
-): RenderStep[];
+): readonly Readonly<RenderStep>[];
 
 /** Renders a compiled plan. */
 export function renderTemplate(
-  plan: RenderStep[],
+  plan: readonly Readonly<RenderStep>[],
   handlers: Record<string, TokenValue>,
   dateParts: Partial<DateParts>,
   options?: { onMissing?: (token: string) => string },
@@ -205,11 +210,16 @@ export function isRealDate(dateParts: {
 /** Resolves a textual month name or abbreviation to 1-12. */
 export function parseMonthName(text: string): number | null;
 
-/** Splits a format into literal, token and bracketed-escape segments. */
+/**
+ * Splits a format into literal, token and bracketed-escape segments.
+ *
+ * Results are cached and deeply frozen. Mutating them throws rather than
+ * corrupting the cache for later callers.
+ */
 export function tokenizeFormat(
   format: string,
   tokens: Iterable<string>,
-): FormatSegment[];
+): readonly Readonly<FormatSegment>[];
 
 /** Builds the longest-first alternation body for a token set. */
 export function buildTokenPattern(tokens: Iterable<string>): string;
@@ -218,7 +228,7 @@ export function buildTokenPattern(tokens: Iterable<string>): string;
 export function buildTokenMatcher(tokens: Iterable<string>): RegExp;
 
 /** Collects the distinct token names in a tokenized format. */
-export function collectTokens(segments: FormatSegment[]): string[];
+export function collectTokens(segments: readonly FormatSegment[]): string[];
 
 /** Escapes a string for inclusion in a regular expression. */
 export function escapeRegex(str: string): string;

@@ -4,4 +4,5 @@ coverage/
 *.log
 .DS_Store
 .env
-.env.*.differential-reference/
+.env.*
+.differential-reference/
