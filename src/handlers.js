@@ -1,10 +1,11 @@
+import { nullProtoMap } from './utils.js';
+
 /**
- * Month names used by `MMMM` and `MMM` tokens.
- * Indexing is 1-based (`month = 1` maps to 'January').
+ * Full month names, indexed 1-based (`month = 1` maps to `January`).
  *
- * @constant {string[]}
+ * @type {readonly string[]}
  */
-export const MONTH_NAMES = [
+export const MONTH_NAMES = Object.freeze([
   'January',
   'February',
   'March',
@@ -17,84 +18,239 @@ export const MONTH_NAMES = [
   'October',
   'November',
   'December',
-];
+]);
 
-export const TOKEN_REGISTRY = {
+/**
+ * Three-letter month abbreviations, used by the `MMM` token.
+ *
+ * @type {readonly string[]}
+ */
+export const MONTH_ABBREV = Object.freeze(
+  MONTH_NAMES.map((name) => name.slice(0, 3)),
+);
+
+/** Lower-cased month lookup accepting both full names and abbreviations. */
+const MONTH_LOOKUP = (() => {
+  const map = new Map();
+  MONTH_NAMES.forEach((name, index) => {
+    map.set(name.toLowerCase(), index + 1);
+    map.set(name.slice(0, 3).toLowerCase(), index + 1);
+  });
+  return map;
+})();
+
+/**
+ * Resolves a textual month to its number, ignoring surrounding whitespace.
+ * This is the forgiving form intended for direct calls; the input parser uses
+ * {@link parseMonthText} so a match never consumes a trailing separator.
+ *
+ * @param {string} text
+ * @returns {number|null} 1-12, or `null` when unrecognised.
+ */
+export function parseMonthName(text) {
+  if (typeof text !== 'string') return null;
+  return MONTH_LOOKUP.get(text.trim().toLowerCase()) ?? null;
+}
+
+/**
+ * Strict month lookup used while reading an input string. No trimming, so the
+ * matched text is exactly the characters consumed.
+ *
+ * @param {string} text
+ * @returns {number|null}
+ */
+function parseMonthText(text) {
+  if (typeof text !== 'string') return null;
+  return MONTH_LOOKUP.get(text.toLowerCase()) ?? null;
+}
+
+/**
+ * @param {number|null|undefined} value
+ * @returns {boolean}
+ */
+function isUsable(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/**
+ * @param {number|null|undefined} value
+ * @param {number} pad
+ * @returns {string|null}
+ */
+function pad(value, pad_) {
+  if (!isUsable(value)) return null;
+  return String(value).padStart(pad_, '0');
+}
+
+/**
+ * Every built-in token, with the metadata the parser and renderer need.
+ *
+ * `width` is the maximum number of characters consumed from the input string.
+ * `variable` marks the single-digit forms (`M`, `d`, `H`, `m`, `s`) which accept
+ * either one or two digits. `text` marks tokens parsed from words rather than
+ * digits (`MMM`, `MMMM`).
+ *
+ * Handlers return `null` when the underlying field holds no usable value; the
+ * renderer decides whether that becomes a throw or a literal fallback. Handlers
+ * never throw, so `errorPolicy: 'silent'` is honoured unconditionally.
+ *
+ * @type {Readonly<Record<string, {field: string, width: number, variable: boolean, text?: boolean, handler: (parts: object) => string|null}>>}
+ */
+export const TOKEN_REGISTRY = Object.freeze({
   yyyy: {
     field: 'year',
-    handler: (p) => String(p.year).padStart(4, '0'),
+    width: 4,
+    variable: false,
+    handler: (p) => pad(p.year, 4),
   },
   yy: {
     field: 'year',
-    handler: (p) => String(p.year).slice(-2),
+    width: 2,
+    variable: false,
+    handler: (p) => {
+      if (!isUsable(p.year)) return null;
+      return String(p.year).padStart(2, '0').slice(-2);
+    },
   },
   MMMM: {
     field: 'month',
-    handler: (p) => MONTH_NAMES[p.month - 1],
+    width: 9,
+    variable: false,
+    text: true,
+    parse: parseMonthText,
+    handler: (p) =>
+      isUsable(p.month) && p.month >= 1 && p.month <= 12
+        ? MONTH_NAMES[p.month - 1]
+        : null,
   },
   MMM: {
     field: 'month',
-    handler: (p) => MONTH_NAMES[p.month - 1].slice(0, 3),
+    width: 3,
+    variable: false,
+    text: true,
+    parse: parseMonthText,
+    handler: (p) =>
+      isUsable(p.month) && p.month >= 1 && p.month <= 12
+        ? MONTH_ABBREV[p.month - 1]
+        : null,
   },
   MM: {
     field: 'month',
-    handler: (p) => String(p.month).padStart(2, '0'),
+    width: 2,
+    variable: false,
+    handler: (p) => pad(p.month, 2),
   },
   M: {
     field: 'month',
-    handler: (p) => String(p.month),
+    width: 2,
+    variable: true,
+    handler: (p) => (isUsable(p.month) ? String(p.month) : null),
   },
   dd: {
     field: 'day',
-    handler: (p) => String(p.day).padStart(2, '0'),
+    width: 2,
+    variable: false,
+    handler: (p) => pad(p.day, 2),
   },
   d: {
     field: 'day',
-    handler: (p) => String(p.day),
+    width: 2,
+    variable: true,
+    handler: (p) => (isUsable(p.day) ? String(p.day) : null),
   },
   HH: {
     field: 'hour',
-    handler: (p) => String(p.hour).padStart(2, '0'),
+    width: 2,
+    variable: false,
+    handler: (p) => pad(p.hour, 2),
   },
   H: {
     field: 'hour',
-    handler: (p) => String(p.hour),
+    width: 2,
+    variable: true,
+    handler: (p) => (isUsable(p.hour) ? String(p.hour) : null),
   },
   mm: {
     field: 'minute',
-    handler: (p) => String(p.minute).padStart(2, '0'),
+    width: 2,
+    variable: false,
+    handler: (p) => pad(p.minute, 2),
   },
   m: {
     field: 'minute',
-    handler: (p) => String(p.minute),
+    width: 2,
+    variable: true,
+    handler: (p) => (isUsable(p.minute) ? String(p.minute) : null),
   },
   ss: {
     field: 'second',
-    handler: (p) => String(p.second).padStart(2, '0'),
+    width: 2,
+    variable: false,
+    handler: (p) => pad(p.second, 2),
   },
   s: {
     field: 'second',
-    handler: (p) => String(p.second),
+    width: 2,
+    variable: true,
+    handler: (p) => (isUsable(p.second) ? String(p.second) : null),
   },
-};
+});
 
 /**
- * Built-in token renderers for `buildTemplate()`.
- * Each token maps to a function that receives a `dateParts` object and returns a string.
- * These functions assume valid numeric fields; no internal validation is performed.
+ * Built-in token renderers, derived from {@link TOKEN_REGISTRY}.
  *
- * @type {Object<string, (dateParts: Object) => string>}
- *
- * @example
- * // Given: { year: 2025, month: 4, day: 9, hour: 7, minute: 5, second: 3 }
- * // Token "dd" → "09"
- * // Token "MMM" → "Apr"
- * // Token "yyyy" → "2025"
+ * @type {Readonly<Record<string, (parts: object) => string|null>>}
  */
-export const DEFAULT_HANDLERS = Object.fromEntries(
-  Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.handler]),
+export const DEFAULT_HANDLERS = Object.freeze(
+  nullProtoMap(
+    Object.fromEntries(
+      Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.handler]),
+    ),
+  ),
 );
 
-export const TOKEN_FIELD_MAP = Object.fromEntries(
-  Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.field]),
+/**
+ * Maps each token to the semantic field it populates.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+export const TOKEN_FIELD_MAP = Object.freeze(
+  Object.fromEntries(
+    Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.field]),
+  ),
 );
+
+/**
+ * Groups tokens by the field they populate, e.g. `month` holds `MMMM`, `MMM`,
+ * `MM`, `M`. Precomputed once because it is consulted on every format call.
+ *
+ * @type {Readonly<Record<string, readonly string[]>>}
+ */
+export const FIELD_GROUPS = Object.freeze(
+  Object.entries(TOKEN_REGISTRY).reduce((acc, [tok, def]) => {
+    (acc[def.field] ||= []).push(tok);
+    return acc;
+  }, Object.create(null)),
+);
+
+/**
+ * Ordered `field -> preferred tokens` used when normalizing raw input. Longer
+ * tokens win so that a value captured as `MM` is preferred over `M`.
+ *
+ * @type {Readonly<Record<string, readonly string[]>>}
+ */
+export const FIELD_PREFERENCE = Object.freeze(
+  Object.fromEntries(
+    Object.entries(FIELD_GROUPS).map(([field, toks]) => [
+      field,
+      Object.freeze([...toks].sort((a, b) => b.length - a.length)),
+    ]),
+  ),
+);
+
+/**
+ * Every built-in token name.
+ *
+ * @type {readonly string[]}
+ */
+export const BUILTIN_TOKENS = Object.freeze(Object.keys(TOKEN_REGISTRY));

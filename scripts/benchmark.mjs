@@ -81,7 +81,7 @@ if (existsSync(join(root, pkg.module))) {
   const raw = readFileSync(join(root, pkg.module));
   console.log(
     `bundle: ${raw.length} B raw / ${gzipSync(raw).length} B gzipped ` +
-      `(budget 3072 B)`,
+      `(budget 5120 B)`,
   );
 }
 
