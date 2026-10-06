@@ -1,6 +1,6 @@
 {
   "name": "datefmt-lite",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "type": "module",
   "description": "Lightweight string-to-string date format converter with pluggable tokens",
   "main": "./dist/cjs/index.cjs",
@@ -8,10 +8,14 @@
   "types": "./types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./types/index.d.ts",
-      "import": "./dist/esm/index.esm.js",
-      "require": "./dist/cjs/index.cjs",
-      "default": "./dist/esm/index.esm.js"
+      "import": {
+        "types": "./types/index.d.ts",
+        "default": "./dist/esm/index.esm.js"
+      },
+      "require": {
+        "types": "./types/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
