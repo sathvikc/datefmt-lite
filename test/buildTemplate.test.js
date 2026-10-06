@@ -3,13 +3,13 @@ import { buildTemplate } from '../src/buildTemplate.js';
 describe('buildTemplate', () => {
   it('should render tokens and literals correctly', () => {
     const handlers = {
-      foo: parts => parts.foo.toUpperCase(),
+      foo: (parts) => parts.foo.toUpperCase(),
       bar: 'BAR',
     };
     const format = 'fooXbar';
     const chunks = buildTemplate(format, handlers);
     const out = chunks
-      .map(chunk => (typeof chunk === 'string' ? chunk : chunk({ foo: 'a' })))
+      .map((chunk) => (typeof chunk === 'string' ? chunk : chunk({ foo: 'a' })))
       .join('');
     expect(out).toBe('AXBAR');
   });
@@ -29,7 +29,7 @@ describe('buildTemplate', () => {
     const format = 'aaa';
     const chunks = buildTemplate(format, handlers);
     const out = chunks
-      .map(chunk => (typeof chunk === 'string' ? chunk : chunk({})))
+      .map((chunk) => (typeof chunk === 'string' ? chunk : chunk({})))
       .join('');
     expect(out).toBe('AAA');
   });

@@ -29,7 +29,7 @@
  */
 export function normalizeFields(
   { tokens, ...raw },
-  { yearConverter, errorPolicy = 'throw' } = {}
+  { yearConverter, errorPolicy = 'throw' } = {},
 ) {
   const dateParts = {};
 
@@ -47,7 +47,7 @@ export function normalizeFields(
       dateParts.year = numeric; // best-effort fallback
     } else {
       throw new Error(
-        'yearConverter is required when using two-digit year "yy" format'
+        'yearConverter is required when using two-digit year "yy" format',
       );
     }
   } else {

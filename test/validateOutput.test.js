@@ -15,7 +15,7 @@ describe('validateOutput', () => {
         defaultTokens: {},
         overrideTokens: {},
         errorPolicy: 'throw',
-      })
+      }),
     ).toThrow('Unknown token "QQ" in output format');
   });
 
@@ -97,7 +97,7 @@ describe('validateOutput', () => {
         defaultTokens: {},
         overrideTokens: {},
         errorPolicy: 'throw',
-      })
+      }),
     ).toThrow('Cannot produce token "yyyy" — no data or default');
   });
 
@@ -137,7 +137,7 @@ describe('validateOutput', () => {
         defaultTokens: {},
         overrideTokens: {},
         errorPolicy: 'throw',
-      })
+      }),
     ).toThrow('Cannot produce token "MM" — no data or default');
   });
 
@@ -196,7 +196,7 @@ describe('validateOutput', () => {
         defaultTokens: {},
         overrideTokens: {},
         errorPolicy: 'throw',
-      })
+      }),
     ).toThrow('Unknown token "no" in output format');
   });
 
@@ -230,7 +230,7 @@ describe('validateOutput', () => {
         parsedTokens: [],
         outputFormat: 'ZZ',
         handlers: DEFAULT_HANDLERS,
-      })
+      }),
     ).toThrow('Unknown token "ZZ" in output format');
   });
 });

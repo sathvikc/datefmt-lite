@@ -8,24 +8,26 @@ describe('formatDate()', () => {
   });
 
   it('should handle converting parsed month token into abbreviated MMM output', () => {
-    expect(formatDate('20250425', 'yyyyMMdd', 'MMM dd, yyyy')).toBe('Apr 25, 2025');
+    expect(formatDate('20250425', 'yyyyMMdd', 'MMM dd, yyyy')).toBe(
+      'Apr 25, 2025',
+    );
   });
 
   it('should preserve literal tokens in the format', () => {
     expect(
-      formatDate('20250425T101010', 'yyyyMMddTHHmmss', 'dd-MM-yyyy [at] HH:mm')
+      formatDate('20250425T101010', 'yyyyMMddTHHmmss', 'dd-MM-yyyy [at] HH:mm'),
     ).toBe('25-04-2025 [at] 10:10');
   });
 
   it('should apply a two‑digit year converter when provided', () => {
     expect(
-      formatDate('250425', 'yyMMdd', 'dd/MM/yyyy', { yearConverter: pivot })
+      formatDate('250425', 'yyMMdd', 'dd/MM/yyyy', { yearConverter: pivot }),
     ).toBe('25/04/2025');
   });
 
   it('should throw if yy format used without a yearConverter', () => {
     expect(() => formatDate('250425', 'yyMMdd', 'dd/MM/yyyy')).toThrow(
-      /yearConverter/
+      /yearConverter/,
     );
   });
 
@@ -34,7 +36,7 @@ describe('formatDate()', () => {
     expect(
       formatDate('20250615', 'yyyyMMdd', 'yyyy-Q/dd', {
         customTokens: handlers,
-      })
+      }),
     ).toBe('2025-Q2/15');
   });
 
@@ -42,7 +44,7 @@ describe('formatDate()', () => {
     expect(
       formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy', {
         overrideTokens: { dd: '01' },
-      })
+      }),
     ).toBe('01/04/2025');
   });
 
@@ -50,13 +52,13 @@ describe('formatDate()', () => {
     expect(
       formatDate('202504', 'yyyyMM', 'dd/MM/yyyy', {
         defaultTokens: { dd: '99' },
-      })
+      }),
     ).toBe('99/04/2025');
   });
 
   it('should throw on missing output token without a default', () => {
     expect(() => formatDate('2025', 'yyyy', 'MM/dd/yyyy')).toThrow(
-      /Cannot produce token "MM"/
+      /Cannot produce token "MM"/,
     );
   });
 

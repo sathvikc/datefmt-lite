@@ -29,7 +29,7 @@ export function formatDate(
   inputDate: string,
   inputFormat: string,
   outputFormat: string,
-  options?: FormatOptions
+  options?: FormatOptions,
 ): string;
 
 // Output from extractTokens
@@ -42,12 +42,15 @@ export function extractTokens(
   inputDate: string,
   inputFormat: string,
   handlers: HandlerMap,
-  options?: { errorPolicy?: 'throw' | 'silent' }
+  options?: { errorPolicy?: 'throw' | 'silent' },
 ): ExtractedTokens;
 
 export function normalizeFields(
   raw: ExtractedTokens,
-  options?: { yearConverter?: (yy: number) => number; errorPolicy?: 'throw' | 'silent' }
+  options?: {
+    yearConverter?: (yy: number) => number;
+    errorPolicy?: 'throw' | 'silent';
+  },
 ): DateParts;
 
 export function validateOutput(args: {
@@ -62,12 +65,5 @@ export function validateOutput(args: {
 
 export function buildTemplate(
   outputFormat: string,
-  handlers: HandlerMap
-): Array<string | ((parts: DateParts) => string)>;
-
-export function buildTokenRegex(
   handlers: HandlerMap,
-  extraTokens?: string[]
-): RegExp;
-
-export function extractAllTokensFromFormat(format: string): string[];
+): Array<string | ((parts: DateParts) => string)>;

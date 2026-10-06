@@ -25,7 +25,7 @@ export function extractTokens(
   inputDate,
   inputFormat,
   handlers = DEFAULT_HANDLERS,
-  options = {}
+  options = {},
 ) {
   const { errorPolicy = 'throw' } = options;
   const tokenRE = buildTokenRegex(handlers);
@@ -57,7 +57,7 @@ export function extractTokens(
       if (slice.length < len || !/^\d+$/.test(slice)) {
         if (errorPolicy === 'throw') {
           throw new Error(
-            `Input does not match inputFormat — failed at token "${segment}"`
+            `Input does not match inputFormat — failed at token "${segment}"`,
           );
         }
         raw[segment] = null;

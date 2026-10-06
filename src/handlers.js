@@ -92,9 +92,9 @@ export const TOKEN_REGISTRY = {
  * // Token "yyyy" → "2025"
  */
 export const DEFAULT_HANDLERS = Object.fromEntries(
-  Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.handler])
+  Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.handler]),
 );
 
 export const TOKEN_FIELD_MAP = Object.fromEntries(
-  Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.field])
+  Object.entries(TOKEN_REGISTRY).map(([tok, def]) => [tok, def.field]),
 );
