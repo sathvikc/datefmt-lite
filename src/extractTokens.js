@@ -186,5 +186,9 @@ export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
   if (!mismatched && pos < inputDate.length) mismatched = true;
   if (!mismatched && sawToken && tokens.length === 0) mismatched = true;
 
+  // Reading past the end of the input means the declared widths did not fit the
+  // record, so the shape never matched even if every readable token did.
+  if (!mismatched && pos > inputDate.length) mismatched = true;
+
   return { tokens, values, mismatched: mismatched || desynced };
 }

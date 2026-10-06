@@ -12,6 +12,16 @@ const RESERVED_CHARS = /[-/\\^$*+?.()|[\]{}]/g;
 /** Matches a run of characters that could plausibly be a token name. */
 const TOKEN_SHAPE = /^[A-Za-z]+$/;
 
+const LETTER = /[a-zA-Z]/;
+
+/**
+ * Single characters that may stand between two tokens inside one alphabetic
+ * run. ISO 8601 writes `ddTHH:mm:ss`, where `T` separates tokens but is not a
+ * token itself. Recognising these keeps literal separator letters literal while
+ * letting the tokens on either side still be found.
+ */
+const STRUCTURAL_SEPARATORS = new Set(['T', 'Z', 'W', 't', 'z', 'a']);
+
 const emptyMatcher = () => {
   const never = /(?!)()/y;
   never.lastIndex = 0;
@@ -100,7 +110,10 @@ export function buildTokenMatcher(tokens) {
  * // → [token yyyy, escaped '-', token MM]
  */
 export function tokenizeFormat(format, tokens) {
-  const matcher = buildTokenMatcher(tokens);
+  const tokenNames = [...tokens].filter(
+    (name) => typeof name === 'string' && name,
+  );
+  const tokenSet = new Set(tokenNames);
   const segments = [];
   let literalStart = 0;
   let i = 0;
@@ -126,21 +139,101 @@ export function tokenizeFormat(format, tokens) {
       }
     }
 
-    matcher.lastIndex = i;
-    const match = matcher.exec(format);
-    if (match) {
-      flushLiteral(i);
-      segments.push({ type: 'token', value: match[0] });
-      i += match[0].length;
-      literalStart = i;
+    if (!LETTER.test(format[i])) {
+      i += 1;
       continue;
     }
 
-    i += 1;
+    // A token may be followed by another token with no separator at all, which
+    // is what makes `yyyyMMdd` and the ISO `ddTHH` work. It may not sit inside a
+    // longer word, so `day` stays literal instead of becoming `d` plus `ay`.
+    //
+    // The decision is taken per alphabetic run, so each run is examined once and
+    // the walk stays linear.
+    let end = i;
+    while (end < format.length && LETTER.test(format[end])) end += 1;
+
+    const run = format.slice(i, end);
+    const tokenizable = decomposes(run, tokenSet);
+
+    if (tokenizable) {
+      const hit = longestPrefix(run, tokenSet);
+      if (hit) {
+        flushLiteral(i);
+        segments.push({ type: 'token', value: hit });
+        i += hit.length;
+        literalStart = i;
+        continue;
+      }
+
+      // The run is made of tokens but starts with a structural separator, as in
+      // the ISO `T` between `dd` and `HH`. Leave it to the surrounding literal.
+      i += 1;
+      continue;
+    }
+
+    // Not tokenizable: the whole run is literal text.
+    i = end;
   }
 
   flushLiteral(format.length);
   return segments;
+}
+
+/**
+ * Reports whether an alphabetic run can be split into known tokens.
+ *
+ * A run qualifies only if every character belongs to a token, except for at
+ * most one structural separator. That admits `yyyyMMdd` and `ddTHH`, where `T`
+ * separates two tokens, while rejecting `day`, which is a single word.
+ *
+ * @param {string} run
+ * @param {Set<string>} tokenSet
+ * @returns {boolean}
+ */
+function decomposes(run, tokenSet) {
+  let rest = run;
+  let separatorsLeft = 1;
+
+  while (rest) {
+    const matched = longestPrefix(rest, tokenSet);
+    if (matched) {
+      rest = rest.slice(matched.length);
+      continue;
+    }
+
+    // A single structural separator may stand between two tokens, which is what
+    // ISO 8601 relies on: `ddTHH`. Both sides must be real tokens.
+    if (
+      separatorsLeft > 0 &&
+      rest.length > 1 &&
+      STRUCTURAL_SEPARATORS.has(rest[0]) &&
+      longestPrefix(rest.slice(1), tokenSet)
+    ) {
+      separatorsLeft -= 1;
+      rest = rest.slice(1);
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * The longest known token that prefixes a run.
+ *
+ * @param {string} run
+ * @param {Set<string>} tokenSet
+ * @returns {string|null}
+ */
+function longestPrefix(run, tokenSet) {
+  for (let end = run.length; end > 0; end -= 1) {
+    const candidate = run.slice(0, end);
+    if (tokenSet.has(candidate)) return candidate;
+  }
+  return null;
 }
 
 /**

@@ -156,6 +156,13 @@ export function validateOutput({
     // tokens are not in the registry, so they are always considered derivable
     // and their handler decides what to emit.
     const spec = hasOwn(TOKEN_REGISTRY, token) ? TOKEN_REGISTRY[token] : null;
+
+    // A token the user redefined via customTokens is theirs to resolve, so it is
+    // always renderable. Without this, a custom token shadowing a built-in would
+    // inherit that built-in's requirement and be rejected when its own handler
+    // could have produced the value.
+    if (spec && hasOwn(customTokens, token)) continue;
+
     if (spec ? dateParts?.[spec.field] != null : true) continue;
 
     if (errorPolicy === 'throw') {

@@ -1,5 +1,9 @@
 import { ERROR_CODES, DateFormatError } from './errors.js';
-import { FIELD_GROUPS, FIELD_PREFERENCE, TOKEN_REGISTRY } from './handlers.js';
+import {
+  BUILTIN_TOKENS,
+  FIELD_PREFERENCE,
+  TOKEN_REGISTRY,
+} from './handlers.js';
 import { hasOwn } from './utils.js';
 
 /**
@@ -69,9 +73,14 @@ export function normalizeFields(input, options = {}) {
     }
   }
 
-  // Custom tokens own their field, so a handler can read what it parsed.
+  // Custom tokens own their field, so a handler can read what it parsed. Built-in
+  // token names are deliberately excluded: exposing `dateParts.MM` alongside
+  // `dateParts.month` would give the same value two spellings, and a custom token
+  // named `month` would collide with the semantic field.
   for (const token of Object.keys(values)) {
-    if (hasOwn(FIELD_GROUPS, token)) continue;
+    if (BUILTIN_TOKENS.includes(token)) continue;
+    if (token in FIELD_PREFERENCE) continue;
+    if (Object.hasOwn(dateParts, token)) continue;
     const raw = values[token];
     dateParts[token] = raw == null || raw === '' ? null : Number(raw);
   }

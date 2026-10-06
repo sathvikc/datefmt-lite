@@ -96,7 +96,7 @@ function pad(value, pad_) {
  *
  * @type {Readonly<Record<string, {field: string, width: number, variable: boolean, text?: boolean, handler: (parts: object) => string|null}>>}
  */
-export const TOKEN_REGISTRY = Object.freeze({
+const REGISTRY_ENTRIES = {
   yyyy: {
     field: 'year',
     width: 4,
@@ -194,7 +194,20 @@ export const TOKEN_REGISTRY = Object.freeze({
     variable: true,
     handler: (p) => (isUsable(p.second) ? String(p.second) : null),
   },
-});
+};
+
+/**
+ * Freezes each token's metadata as well as the table, so a consumer cannot widen
+ * a token's declared width and silently corrupt parsing for every later call.
+ */
+export const TOKEN_REGISTRY = Object.freeze(
+  Object.fromEntries(
+    Object.entries(REGISTRY_ENTRIES).map(([token, spec]) => [
+      token,
+      Object.freeze(spec),
+    ]),
+  ),
+);
 
 /**
  * Built-in token renderers, derived from {@link TOKEN_REGISTRY}.
