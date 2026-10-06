@@ -15,6 +15,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { formatDate } from '../src/formatter.js';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
@@ -55,6 +57,49 @@ const PUBLIC_API = [
 const EXPECTED_CONDITIONS = ['types', 'import', 'require'];
 const EXPECTED = '25/04/2025';
 const ARGS = ['20250425', 'yyyyMMdd', 'dd/MM/yyyy'];
+
+/**
+ * Behaviours a bundle must reproduce. Without these, a stale `dist/` that merely
+ * has the right export names would pass while shipping the old, broken library.
+ */
+const BEHAVIOURS = [
+  [
+    'basic conversion',
+    () => ['20250425', 'yyyyMMdd', 'dd/MM/yyyy'],
+    {},
+    '25/04/2025',
+  ],
+  [
+    'compact round trip',
+    () => ['20250425', 'yyyyMMdd', 'yyyyMMdd'],
+    {},
+    '20250425',
+  ],
+  [
+    'ISO 8601 output',
+    () => ['20250425030709', 'yyyyMMddHHmmss', 'yyyy-MM-ddTHH:mm:ss'],
+    {},
+    '2025-04-25T03:07:09',
+  ],
+  [
+    'textual month parsing',
+    () => ['25-Apr-2025', 'dd-MMM-yyyy', 'dd/MM/yyyy'],
+    {},
+    '25/04/2025',
+  ],
+  [
+    'bracketed literal',
+    () => ['20250425', 'yyyyMMdd', 'yyyy [at] MM'],
+    {},
+    '2025 at 04',
+  ],
+  [
+    'variable-width input',
+    () => ['20250409', 'yyyyMd', 'dd/MM/yyyy'],
+    {},
+    '09/04/2025',
+  ],
+];
 
 /**
  * Size budget for the gzipped bundle. The library's claim to be "lite" is only
@@ -172,6 +217,40 @@ await check('import() exposes the full public API', async () =>
     'import()',
   ),
 );
+
+await check(
+  'bundles reproduce current behaviour, not just export names',
+  async () => {
+    for (const [label, makeArgs, options, expected] of BEHAVIOURS) {
+      const args = makeArgs();
+      const viaSrc = formatDate(args[0], args[1], args[2], options);
+      const viaBundle = sandboxRequire(pkg.name).formatDate(
+        args[0],
+        args[1],
+        args[2],
+        options,
+      );
+      assert(viaSrc === expected, `src/ regression: ${label} gave ${viaSrc}`);
+      assert(
+        viaBundle === expected,
+        `${label}: bundle gave ${JSON.stringify(viaBundle)}, expected ${expected}`,
+      );
+    }
+    return `${BEHAVIOURS.length} behaviours match src/`;
+  },
+);
+
+await check('bundles reject impossible dates like src/', () => {
+  const args = ['20251345', 'yyyyMMdd', 'dd/MM/yyyy'];
+  let bundleThrew = false;
+  try {
+    sandboxRequire(pkg.name).formatDate(...args, { validate: 'strict' });
+  } catch {
+    bundleThrew = true;
+  }
+  assert(bundleThrew, 'bundle silently ignored validate: "strict"');
+  return 'strict validation enforced';
+});
 
 await check('bundles contain the public API by name', () => {
   for (const bundle of [pkg.main, pkg.module]) {
