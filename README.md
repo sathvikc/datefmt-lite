@@ -8,7 +8,7 @@ Convert date strings from one format to another using pure token-to-token logic�
 
 ## 🚀 Features
 
-- **Fast**: Parses and formats via pre‑compiled templates
+- **Tiny**: ~1.7 kB gzipped per entrypoint, zero runtime dependencies
 - **Pluggable Tokens**: Add or override tokens without touching core code
 - **Flexible Year Handling**: Supply a `yearConverter` to expand two‑digit years or provide defaults
 - **Override & Default Tokens**: Control individual token output on a per-call basis
@@ -22,8 +22,6 @@ Convert date strings from one format to another using pure token-to-token logic�
 
 ```bash
 npm install datefmt-lite
-# or
-npm run add datefmt-lite
 ```
 
 ---
@@ -47,7 +45,7 @@ formatDate('250425', 'yyMMdd', 'dd/MM/yyyy', {
 ## 📘 When to Use This Library
 
 - You control both the input and output formats
-- You want predictable, fast token-to-token formatting
+- You want predictable token-to-token conversion
 - You want fallback behavior instead of runtime errors
 - You don’t need built-in date math, timezone offsets, or localization (but you can inject that logic via tokens)
 
@@ -121,7 +119,7 @@ formatDate(inputDate, inputFormat, outputFormat, {
 
 ```js
 customTokens: {
-  Q: (p) => 'Q' + Math.ceil(p.month / 3);
+  Q: (p) => 'Q' + Math.ceil(p.month / 3),
 }
 ```
 
@@ -138,11 +136,9 @@ customTokens: {
 ## 🧪 Scripts
 
 ```bash
-# Run tests
-npm run test
-
-# Build ESM and CJS
-npm run build
+npm test              # run the test suite
+npm run build         # build the ESM and CJS bundles
+npm run verify        # format, lint, typecheck, test, build, dist checks
 ```
 
 ---

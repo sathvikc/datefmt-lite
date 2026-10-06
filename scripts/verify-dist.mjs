@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { gzipSync } from 'node:zlib';
 import {
@@ -12,7 +13,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -77,11 +78,14 @@ const EXPECTED = '25/04/2025';
 const ARGS = ['20250425', 'yyyyMMdd', 'dd/MM/yyyy'];
 
 /**
- * Size budget for the gzipped bundle. The claim to be "lite" only means
- * something while the library stays well under dayjs core at ~3.4 kB, so the
- * ceiling is enforced rather than assumed.
+ * Size budget for the two bundles combined, gzipped.
+ *
+ * A consumer loads one entrypoint, but this is enforced on the total so neither
+ * can grow unchecked while the other stays small. It leaves roughly 1 kB of
+ * headroom over the current ~3.3 kB, which is room for a fix but not for a
+ * dependency.
  */
-const GZIP_BUDGET = 2560;
+const GZIP_BUDGET = 4096;
 
 const results = [];
 
@@ -112,6 +116,41 @@ cpSync(join(root, 'types'), join(pkgDir, 'types'), { recursive: true });
 writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(pkg));
 
 const sandboxRequire = createRequire(join(sandbox, 'probe.cjs'));
+
+// Resolve through the package NAME from inside the sandbox, so the exports map
+// is genuinely exercised for each condition. An absolute path would bypass it.
+writeFileSync(
+  join(sandbox, 'probe.cjs'),
+  `const m = require(${JSON.stringify(pkg.name)});\n` +
+    `console.log(JSON.stringify({ ok: typeof m.formatDate === 'function', ` +
+    `value: m.formatDate(...${JSON.stringify(ARGS)}), ` +
+    `resolved: require.resolve(${JSON.stringify(pkg.name)}), ` +
+    `keys: Object.keys(m).sort() }));\n`,
+);
+writeFileSync(
+  join(sandbox, 'probe.mjs'),
+  `import * as m from ${JSON.stringify(pkg.name)};\n` +
+    `console.log(JSON.stringify({ ok: typeof m.formatDate === 'function', ` +
+    `value: m.formatDate(...${JSON.stringify(ARGS)}), ` +
+    `resolved: import.meta.resolve(${JSON.stringify(pkg.name)}), ` +
+    `keys: Object.keys(m).filter((k) => k !== 'default').sort() }));\n`,
+);
+
+/**
+ * Runs one of the sandbox probes in a fresh Node process.
+ *
+ * @param {string} file Probe filename inside the sandbox.
+ * @returns {{ok: boolean, value: string, keys: string[]}}
+ */
+function probe(file) {
+  const out = spawnSync(process.execPath, [join(sandbox, file)], {
+    encoding: 'utf8',
+  });
+  if (out.status !== 0) {
+    throw new Error(`${file} exited ${out.status}: ${out.stderr.trim()}`);
+  }
+  return JSON.parse(out.stdout);
+}
 
 await check('exports map is well formed', () => {
   const entry = pkg.exports?.['.'];
@@ -152,28 +191,24 @@ await check('every exports target exists on disk', () => {
 });
 
 await check('require("datefmt-lite") resolves via exports', () => {
-  const mod = sandboxRequire(pkg.name);
-  assert(typeof mod.formatDate === 'function', 'formatDate not exported');
-  assert(mod.formatDate(...ARGS) === EXPECTED, 'wrong output from require()');
+  const r = probe('probe.cjs');
+  assert(r.ok, 'formatDate not exported to require()');
+  assert(r.value === EXPECTED, `wrong output from require(): ${r.value}`);
   return 'ok';
 });
 
-await check('import "datefmt-lite" resolves via exports', async () => {
-  const mod = await import(pathToFileURL(join(root, pkg.module)).href);
-  assert(typeof mod.formatDate === 'function', 'formatDate not exported');
-  assert(mod.formatDate(...ARGS) === EXPECTED, 'wrong output from import()');
+await check('import "datefmt-lite") resolves via exports', () => {
+  const r = probe('probe.mjs');
+  assert(r.ok, 'formatDate not exported to import()');
+  assert(r.value === EXPECTED, `wrong output from import(): ${r.value}`);
   return 'ok';
 });
 
-await check('both entrypoints expose the full public API', async () => {
-  const required = sandboxRequire(pkg.name);
-  const imported = await import(pathToFileURL(join(root, pkg.module)).href);
-  for (const [label, mod] of [
-    ['require()', required],
-    ['import()', imported],
-  ]) {
-    const missing = PUBLIC_API.filter((n) => mod[n] === undefined);
-    assert(!missing.length, `${label} is missing: ${missing.join(', ')}`);
+await check('both entrypoints expose the full public API', () => {
+  for (const file of ['probe.cjs', 'probe.mjs']) {
+    const r = probe(file);
+    const missing = PUBLIC_API.filter((n) => !r.keys.includes(n));
+    assert(!missing.length, `${file} is missing: ${missing.join(', ')}`);
   }
   return `${PUBLIC_API.length} exports from each`;
 });
@@ -202,6 +237,20 @@ await check('bundles still reject bad input like src/', () => {
   }
   assert(threw, 'bundle silently accepted an unproducible token');
   return 'strict validation enforced';
+});
+
+await check('each condition resolves to its own bundle', () => {
+  const cjs = probe('probe.cjs').resolved;
+  const esm = probe('probe.mjs').resolved;
+  assert(
+    cjs.endsWith(rel(pkg.main)),
+    `require() resolved ${cjs}, expected ${pkg.main}`,
+  );
+  assert(
+    esm.endsWith(rel(pkg.module)),
+    `import() resolved ${esm}, expected ${pkg.module}`,
+  );
+  return 'require→cjs, import→esm';
 });
 
 await check('cjs bundle is CommonJS and carries no ESM syntax', () => {
@@ -245,18 +294,21 @@ await check('dist holds bundles only (no stray transpiler output)', () => {
   return 'bundle-only';
 });
 
-await check('both bundles stay within the size budget', () => {
+await check('shipped bundle total stays within the size budget', () => {
+  // Measured on the SUM. A consumer loads one entrypoint, but a per-entry
+  // budget would let the total drift to twice the stated figure.
+  let total = 0;
   const detail = [];
   for (const bundle of [pkg.main, pkg.module]) {
-    const raw = readFileSync(join(root, bundle));
-    const gz = gzipSync(raw).length;
-    assert(
-      gz < GZIP_BUDGET,
-      `${bundle} is ${gz} B gz, budget ${GZIP_BUDGET} B`,
-    );
-    detail.push(`${bundle.split('/').pop()} ${gz} B gz`);
+    const gz = gzipSync(readFileSync(join(root, bundle))).length;
+    total += gz;
+    detail.push(`${bundle.split('/').pop()} ${gz} B`);
   }
-  return detail.join(', ');
+  assert(
+    total < GZIP_BUDGET,
+    `bundles total ${total} B gzipped, budget ${GZIP_BUDGET} B`,
+  );
+  return `${detail.join(' + ')} = ${total} B (budget ${GZIP_BUDGET})`;
 });
 
 const width = Math.max(...results.map((r) => r.name.length));

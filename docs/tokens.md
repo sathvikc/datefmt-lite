@@ -38,10 +38,11 @@ You can include literal text in output formats using square brackets:
 
 ```js
 formatDate('20250425T101010', 'yyyyMMddTHHmmss', 'dd MMM yyyy [at] HH:mm');
-// → '25 Apr 2025 at 10:10'
+// → '25 Apr 2025 [at] 10:10'
 ```
 
 Anything inside `[...]` is treated as a literal — even if it looks like a token.
+The brackets themselves are kept in the output.
 
 ---
 
@@ -50,12 +51,15 @@ Anything inside `[...]` is treated as a literal — even if it looks like a toke
 You can add your own tokens using `customTokens` in options:
 
 ```js
-formatDate('20250601', 'yyyyMMdd', 'yyyy [Q]Q', {
+formatDate('20250601', 'yyyyMMdd', 'yyyy-[Q]Q', {
   customTokens: {
-    Q: (parts) => Math.ceil(parts.month / 3),
+    Q: (parts) => 'Q' + Math.ceil(parts.month / 3),
   },
 });
-// → '2025 Q2'
+// → '2025-[Q2]Q2'
+
+// Note the brackets survive, and `[Q]` is literal rather than a token. To emit a
+// bare `Q`, leave it outside the brackets: 'yyyy-Q/dd' → '2025-Q2/01'.
 ```
 
 Built-in token names are reserved. You can override them using `overrideTokens` if needed.

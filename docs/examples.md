@@ -61,7 +61,10 @@ formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy', {
 
 ```js
 formatDate('20250425T101010', 'yyyyMMddTHHmmss', 'dd MMM yyyy [at] HH:mm');
-// → '25 Apr 2025 at 10:10'
+// → '25 Apr 2025 [at] 10:10'
+
+// The brackets are kept verbatim, and their contents are never tokenized, so
+// this is the reliable way to write literal text that resembles a token.
 ```
 
 ---

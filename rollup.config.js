@@ -11,8 +11,7 @@ export default {
   onwarn(warning, warn) {
     if (warning.code === 'UNRESOLVED_IMPORT') {
       throw new Error(
-        `Unresolved import "${warning.source}" from "${warning.importer}". ` +
-          `datefmt-lite must stay dependency-free.`,
+        `${warning.message} datefmt-lite must stay dependency-free.`,
       );
     }
     warn(warning);

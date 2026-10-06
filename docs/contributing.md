@@ -9,7 +9,7 @@ Thanks for your interest in improving this library! Here's how to get started.
 ```bash
 git clone https://github.com/sathvikc/datefmt-lite.git
 cd datefmt-lite
-npm run install
+npm ci
 ```
 
 ---
@@ -17,10 +17,10 @@ npm run install
 ## 🧪 Run Tests
 
 ```bash
-npm run test
+npm test
 ```
 
-Uses Jest. Tests live in `*.test.js` files next to their source.
+Uses Jest. Tests live in `test/`, not next to their source.
 
 ---
 
@@ -38,9 +38,10 @@ Builds CommonJS and ESM outputs to `dist/`
 
 ```bash
 npm run clean      # Remove build artifacts
-npm run build      # Run both Babel + Rollup builds
-npm run test       # Run full test suite
-npm run prepare    # Hook used by publish process
+npm run build      # Build the ESM and CJS bundles with Rollup
+npm run test       # Run the test suite
+npm run test:dist  # Verify the built bundles
+npm run verify     # format:check, lint, typecheck, test, build, test:dist
 ```
 
 ---

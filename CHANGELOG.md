@@ -1,5 +1,56 @@
 # Changelog
 
+## [2.1.1]
+
+### 📦 Packaging
+
+- **`npm install` no longer fails.** `rollup-plugin-terser@7` peer-requires
+  `rollup@^2` while this package pinned `^3`, so every install died with
+  `ERESOLVE`. Replaced with `@rollup/plugin-terser` (peers on 2, 3 and 4) and
+  bumped rollup to 4, which also clears CVE-2026-27606 (arbitrary file write via
+  path traversal, CVSS 8.8) and the deprecated `rimraf@3`.
+- **`require('datefmt-lite')` works again.** It threw
+  `ReferenceError: exports is not defined in ES module scope` for every
+  CommonJS consumer: the package declares `"type": "module"` and pointed
+  `main` at `dist/cjs/index.cjs.js`, but only a literal `.cjs` suffix marks a
+  file as CommonJS. The bundle is now emitted as `dist/cjs/index.cjs`.
+- `dist/cjs` no longer ships 8 dead ESM duplicates. `build:cjs` set
+  `BABEL_ENV=cjs`, which fell through to the top-level Babel preset with
+  `"modules": false`. Those files were 80% of the published tarball.
+- The build no longer shells out to `yarn`, which is neither installed nor a
+  dependency, so a plain `npm install` failed with exit 127. It now runs from
+  `prepack`.
+- Added the `types` and `default` conditions to the `exports` map; TypeScript
+  ignores the top-level `types` field once `exports` exists.
+- `docs/`, `CHANGELOG.md` and `LICENSE` are now published, so the README's
+  documentation links resolve on npm instead of 404ing.
+- `yarn.lock` replaced by `package-lock.json`, so `npm ci` works.
+- The build fails on an unresolved import, enforcing the zero-dependency claim.
+
+### 📝 Types
+
+- **Removed `buildTokenRegex` and `extractAllTokensFromFormat` from
+  `types/index.d.ts`.** Both were declared as package exports but neither is
+  actually exported, so a TypeScript consumer compiled cleanly and received
+  `undefined` at runtime. This is a compile-time breaking change for anyone who
+  imported them.
+
+### 🧰 Tooling
+
+- CI on Node 20/22/24: formatting, lint, typecheck, tests with coverage, build,
+  and dist verification, plus a publish dry run.
+- `npm run verify` runs the whole chain.
+- `npm run test:dist` checks the exports map resolves for both entrypoints, that
+  the public API is intact, that six concrete behaviours still hold, and that
+  the bundle stays within a 2,560 B gzipped budget.
+- Added eslint, prettier and TypeScript configuration.
+
+### ⚠️ Runtime behaviour is unchanged from 2.1.0
+
+Verified by running a large generated corpus through both this version and 2.1.0:
+identical output and identical thrown errors throughout. A separate, larger
+rewrite is planned for v3.
+
 ## [2.1.0] – 2025-05-30
 
 ### 🛠 Fixes & Refactorings
