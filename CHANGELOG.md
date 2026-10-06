@@ -21,8 +21,8 @@ it is recorded here rather than left implicit:
   and the repository deliberately has no `prepare` script, so nothing in the
   current tree publishes by accident.
 - `README.md` still advertises **1.7 kB gzipped** in the feature list. The
-  built bundles are 4.7 kB gzipped (`4702 B` for `dist/cjs/index.cjs`, `4699 B`
-  for `dist/esm/index.esm.js`), which is inside the `5120 B` budget that
+  built bundles are about 5.2 kB gzipped (`5229 B` for `dist/cjs/index.cjs`,
+  `5232 B` for `dist/esm/index.esm.js`), which is inside the `5632 B` budget that
   `scripts/verify-dist.mjs` enforces. The figure needs correcting in the same
   release.
 
@@ -302,7 +302,7 @@ because the wider read is attempted first and must be all digits.
   bare import now fails the build instead of shipping.
 - `package.json` declares `sideEffects: false`, an `exports` map with `types`
   listed first, an `./package.json` subpath, and `engines.node: ">=18"`.
-- Bundles are 4.7 kB gzipped, against a 5120-byte budget enforced in CI.
+- Bundles are about 5.2 kB gzipped, against a 5632-byte budget enforced in CI.
 - The test suite was replaced with contract and property coverage: seeded
   differential fuzzing over the whole token matrix, a security suite
   (prototype pollution, `Object.prototype` key confusion, ReDoS, message

@@ -18,19 +18,31 @@ one more file.
 | File                     | Lines | Responsibility                                                                                          |
 | ------------------------ | ----: | ------------------------------------------------------------------------------------------------------- |
 | `src/index.js`           |    30 | Public surface. Re-exports only; contains no logic.                                                     |
-| `src/formatter.js`       |   236 | `formatDate`. Validates options, builds the token table, sequences the pipeline, applies `errorPolicy`. |
-| `src/extractTokens.js`   |   190 | Reads raw token values out of the input string. `readNumeric` / `readTextual` live here.                |
-| `src/validateOutput.js`  |   188 | Decides how every output token will be rendered. `resolvePrecedence` lives here.                        |
-| `src/utils.js`           |   201 | Shared primitives: `tokenizeFormat`, the matcher builders, `nullProtoMap`, `hasOwn`.                    |
-| `src/handlers.js`        |   256 | `TOKEN_REGISTRY` plus every table derived from it, and the month-name tables.                           |
-| `src/normalizeFields.js` |   126 | Raw token values → semantic fields (`year`, `month`, …). Applies `yearConverter`.                       |
+| `src/formatter.js`       |   239 | `formatDate`. Validates options, builds the token table, sequences the pipeline, applies `errorPolicy`. |
+| `src/extractTokens.js`   |   198 | Reads raw token values out of the input string. `readNumeric` / `readTextual` live here.                |
+| `src/validateOutput.js`  |   224 | Decides how every output token will be rendered. `resolvePrecedence` lives here.                        |
+| `src/utils.js`           |   394 | Shared primitives: `tokenizeFormat`, the matcher builders, `nullProtoMap`, `hasOwn`.                    |
+| `src/handlers.js`        |   280 | `TOKEN_REGISTRY` plus every table derived from it, and the month-name tables.                           |
+| `src/normalizeFields.js` |   135 | Raw token values → semantic fields (`year`, `month`, …). Applies `yearConverter`.                       |
 | `src/validateFields.js`  |   113 | Optional range checking (`validate: 'lenient' \| 'strict'`) and `isRealDate`.                           |
-| `src/buildTemplate.js`   |   105 | `buildTemplate` compiles an output format; `renderTemplate` executes the plan.                          |
+| `src/buildTemplate.js`   |   139 | `buildTemplate` compiles an output format; `renderTemplate` executes the plan.                          |
 | `src/errors.js`          |    83 | `DateFormatError`, `ERROR_CODES`, message truncation.                                                   |
-| `types/index.d.ts`       |   254 | Hand-written public typings (not generated, checked by `npm run typecheck`).                            |
+| `types/index.d.ts`       |   264 | Hand-written public typings (not generated, checked by `npm run typecheck`).                            |
 
-Two functions in `utils.js` are the load-bearing part of the whole design:
-`tokenizeFormat` and `buildTokenMatcher`. Everything else is bookkeeping.
+`tokenizeFormat` in `utils.js` is the load-bearing part of the whole design:
+the parser, the validator and the renderer all go through it, so they cannot
+disagree about what a token is. Everything else is bookkeeping.
+
+Results are memoized, because tokenizing is pure and a pipeline reuses the same
+format strings for every row. Both the tokenizer and the compiled render plan are
+capped at 256 entries with FIFO eviction, since a caller may derive formats from
+data rather than configuration. Cached segments and plan steps are deeply frozen:
+a caller that rewrites one throws rather than corrupting the result for everyone
+else.
+
+Cache keys are length-prefixed, because a custom token name may contain the
+separator character and a plain concatenation would let one (format, vocabulary)
+pair forge another's key.
 
 ---
 
@@ -251,9 +263,10 @@ return renderTemplate(
 );
 ```
 
-`buildTemplate` is called inline, so `formatDate` recompiles the plan on every
-call. Callers processing many rows with one output format should hoist the
-compilation themselves:
+`buildTemplate` is called inline, but its result is cached by output format, so a
+pipeline reformatting one column compiles once rather than once per row. Callers
+with a stable output format can still hoist the compilation themselves if they
+wish:
 
 ```js
 const parsed = extractTokens(row, inputFormat);
