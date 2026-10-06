@@ -19,10 +19,16 @@ describe('argument validation', () => {
     );
   });
 
-  it.each([null, undefined, 123, {}])('rejects inputFormat %p', (format) => {
+  it.each([123, {}, true, []])('rejects inputFormat %p', (format) => {
     expect(() => extractTokens('2025', format)).toThrow(
       expect.objectContaining({ code: ERROR_CODES.INVALID_ARGUMENT }),
     );
+  });
+
+  it.each([null, undefined])('detects the format when inputFormat is %p', (format) => {
+    const r = extractTokens('20250425', format);
+    expect(r.detected).toBe('yyyyMMdd');
+    expect(r.tokens).toEqual(['yyyy', 'MM', 'dd']);
   });
 
   it('names the offending argument', () => {
@@ -217,15 +223,6 @@ describe('literal-only and edge formats', () => {
   it('does not let a prototype member be read as a token', () => {
     const r = extractTokens('abcdefgh', 'toString');
     expect(toks(r)).toEqual([]);
-  });
-});
-
-describe('verifyLiterals option', () => {
-  it('still reports a wrong separator when verification is off', () => {
-    const r = extractTokens('2025/04/25', 'yyyy-MM-dd', undefined, {
-      verifyLiterals: false,
-    });
-    expect(toks(r)).toEqual(['yyyy', 'MM', 'dd']);
   });
 });
 

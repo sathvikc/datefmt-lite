@@ -182,12 +182,10 @@ describe('error message hygiene', () => {
     expect(message.length).toBeLessThan(300);
   });
 
-  it('truncates an absurd token name in the message', () => {
+  it('truncates an absurd input format in the mismatch message', () => {
     let err;
     try {
-      formatDate('20250425', 'yyyyMMdd', `${'A'.repeat(100000)}`, {
-        strictTokens: true,
-      });
+      formatDate('2025', 'yyyy', `${'A'.repeat(100000)}`);
     } catch (e) {
       err = e;
     }

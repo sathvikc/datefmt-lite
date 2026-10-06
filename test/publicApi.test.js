@@ -6,36 +6,9 @@ import * as publicApi from '../src/index.js';
 const root = resolve(process.cwd());
 const types = readFileSync(join(root, 'types/index.d.ts'), 'utf8');
 
-const FUNCTION_EXPORTS = [
-  'buildTemplate',
-  'buildTokenMatcher',
-  'buildTokenPattern',
-  'collectTokens',
-  'escapeRegex',
-  'extractAllTokensFromFormat',
-  'extractTokens',
-  'formatDate',
-  'hasField',
-  'isRealDate',
-  'looksLikeToken',
-  'normalizeFields',
-  'parseMonthName',
-  'renderTemplate',
-  'tokenizeFormat',
-  'validateFields',
-  'validateOutput',
-];
+const FUNCTION_EXPORTS = ['detectFormat', 'formatDate'];
 
-const VALUE_EXPORTS = [
-  'BUILTIN_TOKENS',
-  'DEFAULT_HANDLERS',
-  'ERROR_CODES',
-  'FIELD_GROUPS',
-  'MONTH_ABBREV',
-  'MONTH_NAMES',
-  'TOKEN_FIELD_MAP',
-  'TOKEN_REGISTRY',
-];
+const VALUE_EXPORTS = ['ERROR_CODES'];
 
 const CLASS_EXPORTS = ['DateFormatError'];
 

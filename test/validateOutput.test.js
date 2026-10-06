@@ -196,7 +196,7 @@ describe('silent mode fallbacks', () => {
 });
 
 describe('unknown tokens', () => {
-  it('treats an unrecognised word as literal text by default', () => {
+  it('treats an unrecognised word as literal text', () => {
     const table = run({ dateParts: FULL, outputFormat: 'Date: yyyy' });
     expect(table.Date).toBeUndefined();
   });
@@ -209,12 +209,6 @@ describe('unknown tokens', () => {
       overrides: { customTokens: { Q } },
     });
     expect(table.Q).toBe(Q);
-  });
-
-  it('throws for an unknown token when strictTokens is on', () => {
-    expect(() =>
-      run({ dateParts: FULL, outputFormat: 'Date: yyyy', strictTokens: true }),
-    ).toThrow(/Unknown token/);
   });
 
   it('allows literal punctuation under strictTokens', () => {

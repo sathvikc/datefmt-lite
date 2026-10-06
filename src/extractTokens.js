@@ -1,13 +1,11 @@
 import { ERROR_CODES, DateFormatError } from './errors.js';
-import { TOKEN_REGISTRY, tokenizeBuiltin } from './handlers.js';
+import { CANDIDATES, requiredFields, satisfies } from './detect.js';
+import { TOKEN_REGISTRY } from './handlers.js';
 import { hasOwn, nullProtoMap, tokenizeFormat } from './utils.js';
 
 const DIGITS_ONLY = /^\d+$/;
 
-/**
- * Longest month name, used as the read-ahead bound for textual tokens.
- * `MMM` also accepts full names so that forgiving input is possible.
- */
+/** Longest month name, used as the read-ahead bound for textual tokens. */
 const TEXT_LIMIT = 9;
 
 /**
@@ -15,12 +13,11 @@ const TEXT_LIMIT = 9;
  *
  * `absent` means the input ran out before the token could be read, which is a
  * tolerable partial parse. `corrupt` means the characters are there but are not
- * the shape the token requires, which signals a genuinely malformed record and
- * must not be rendered as a best-effort date.
+ * the shape the token requires, which signals a genuinely malformed record.
  *
  * @typedef {{status: 'ok', raw: string, next: number}
- *   | {status: 'absent'}
- *   | {status: 'corrupt'}} ReadResult
+ *   | {status: 'absent', advance: number}
+ *   | {status: 'corrupt', advance: number}} ReadResult
  */
 
 /**
@@ -54,14 +51,13 @@ function readNumeric(input, pos, spec) {
 }
 
 /**
- * Reads a textual token by matching a month name or abbreviation at the current
- * position, preferring the longest match so that `April` is not truncated to
- * `Apr` when the format says `MMM`.
+ * Reads a textual token by matching a month name or abbreviation, preferring the
+ * longest match so that `April` is not truncated to `Apr`.
  *
  * @param {string} input
  * @param {number} pos
  * @param {(text: string) => number|null} parse
- * @returns {{ raw: string, value: number, next: number }|null}
+ * @returns {ReadResult}
  */
 function readTextual(input, pos, parse) {
   let best = null;
@@ -70,63 +66,28 @@ function readTextual(input, pos, parse) {
     const slice = input.slice(pos, pos + width);
     if (slice.length < width) break;
     const value = parse(slice);
-    if (value !== null)
+    if (value !== null) {
       best = { status: 'ok', raw: slice, value, next: pos + width };
+    }
   }
 
   if (best) return best;
-  return { status: pos >= input.length ? 'absent' : 'corrupt' };
+  return { status: pos >= input.length ? 'absent' : 'corrupt', advance: 1 };
 }
 
 /**
- * Extracts raw token values from an input string using an input format.
- *
- * The format is tokenized with the same routine the renderer uses, so compact
- * formats (`yyyyMMdd`) and literal text behave identically in both directions.
- * Literal separators are verified against the input rather than skipped by
- * length, which is what stops a stray byte from silently shifting every later
- * field.
- *
- * A token that cannot be read yields a `null` value and is omitted from
- * `tokens`, so callers can tell "absent from the data" apart from "present in
- * the data". `mismatched` is true when the string as a whole failed to conform,
- * which is the signal `errorPolicy: 'silent'` uses to fall back to raw input.
+ * Reads a format's tokens out of an input string.
  *
  * @param {string} inputDate
  * @param {string} inputFormat
- * @param {Record<string, object>} [handlers] Token table used to recognise
- *   format tokens. Defaults to the built-ins.
- * @param {{ verifyLiterals?: boolean }} [options]
- * @returns {{ tokens: string[], values: Record<string, string|null>, mismatched: boolean }}
- *
- * @example
- * extractTokens('20250425', 'yyyyMMdd');
- * // → { tokens: ['yyyy','MM','dd'], values: { yyyy: '2025', MM: '04', dd: '25' }, mismatched: false }
+ * @param {Record<string, object>} table
+ * @returns {{tokens: string[], values: Record<string, string|null>, mismatched: boolean}}
  */
-export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
-  if (typeof inputDate !== 'string') {
-    throw new DateFormatError(
-      `inputDate must be a string, received ${typeof inputDate}`,
-      ERROR_CODES.INVALID_ARGUMENT,
-    );
-  }
-  if (typeof inputFormat !== 'string') {
-    throw new DateFormatError(
-      `inputFormat must be a string, received ${typeof inputFormat}`,
-      ERROR_CODES.INVALID_ARGUMENT,
-    );
-  }
-
-  // Lenient literal skipping exists for legacy call sites that rely on
-  // separators being positional only. It can desynchronise the cursor, so it
-  // reports that fact rather than looking like a clean parse.
-  const { verifyLiterals = true } = options;
-  const table = handlers ?? TOKEN_REGISTRY;
-
+function parseWith(inputDate, inputFormat, table) {
   const names = Object.keys(table);
   const segments =
     table === TOKEN_REGISTRY
-      ? tokenizeBuiltin(inputFormat)
+      ? tokenizeFormat(inputFormat, names)
       : tokenizeFormat(
           inputFormat,
           names.filter((name) => typeof name === 'string' && name),
@@ -136,17 +97,14 @@ export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
   const tokens = [];
   let sawToken = false;
   let mismatched = false;
-  let desynced = false;
   let pos = 0;
 
   for (const segment of segments) {
     if (segment.type === 'literal') {
       const expected = segment.value;
-      const found = inputDate.slice(pos, pos + expected.length);
-      if (found !== expected) {
+      if (inputDate.slice(pos, pos + expected.length) !== expected) {
         mismatched = true;
-        if (verifyLiterals) break;
-        desynced = true;
+        break;
       }
       pos += expected.length;
       continue;
@@ -174,9 +132,6 @@ export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
 
     if (read.status !== 'ok') {
       values[token] = null;
-      // An unreadable token still occupies its declared width. Advancing the
-      // cursor is what stops a following variable-width token from re-reading
-      // the same characters and reporting a bogus value.
       if (read.status === 'corrupt') mismatched = true;
       pos += read.advance ?? 0;
       continue;
@@ -188,11 +143,91 @@ export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
   }
 
   if (!mismatched && pos < inputDate.length) mismatched = true;
+  if (!mismatched && pos > inputDate.length) mismatched = true;
   if (!mismatched && sawToken && tokens.length === 0) mismatched = true;
 
-  // Reading past the end of the input means the declared widths did not fit the
-  // record, so the shape never matched even if every readable token did.
-  if (!mismatched && pos > inputDate.length) mismatched = true;
+  return { tokens, values, mismatched };
+}
 
-  return { tokens, values, mismatched: mismatched || desynced };
+/**
+ * Guesses the input format for a string.
+ *
+ * Every candidate is genuinely parsed and then checked against the fields the
+ * output format needs, so `04/25/2025` resolves to `MM/dd/yyyy` when the output
+ * wants a month and to `dd/MM/yyyy` when it wants a day, without any
+ * hand-tuned scoring.
+ *
+ * @param {string} inputDate
+ * @param {Record<string, object>} table
+ * @param {string} [outputFormat] Used to disambiguate day and month order.
+ * @returns {string|null} The chosen format, or `null` when nothing fits.
+ */
+export function detectFormat(inputDate, table, outputFormat) {
+  const required = outputFormat ? requiredFields(outputFormat) : null;
+
+  for (const [format, pattern] of CANDIDATES) {
+    if (!pattern.test(inputDate)) continue;
+
+    const parsed = parseWith(inputDate, format, table);
+    if (parsed.mismatched) continue;
+
+    if (!satisfies(parsed.values, required)) continue;
+
+    return format;
+  }
+
+  return null;
+}
+
+/**
+ * Extracts raw token values from an input string.
+ *
+ * When `inputFormat` is `null` or omitted the format is detected from the input,
+ * guided by the fields the output format needs. Literal separators are verified
+ * rather than skipped by length, which is what stops a BOM or a wrong separator
+ * from silently shifting every later field.
+ *
+ * A token that cannot be read yields a `null` value and is omitted from
+ * `tokens`, so callers can tell "absent from the data" apart from "present but
+ * unparseable". `mismatched` is true when the string as a whole failed to
+ * conform.
+ *
+ * @param {string} inputDate
+ * @param {string|null} [inputFormat] Omit or pass `null` to detect it.
+ * @param {Record<string, object>} [handlers] Token table. Defaults to built-ins.
+ * @param {{ outputFormat?: string }} [options]
+ * @returns {{tokens: string[], values: Record<string, string|null>, mismatched: boolean, detected?: string}}
+ *
+ * @example
+ * extractTokens('20250425', 'yyyyMMdd');
+ * // → { tokens: ['yyyy','MM','dd'], values: { yyyy:'2025', MM:'04', dd:'25' }, mismatched: false }
+ * extractTokens('25/04/2025', null, undefined, { outputFormat: 'dd/MM/yyyy' });
+ * // → detects 'dd/MM/yyyy'
+ */
+export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
+  if (typeof inputDate !== 'string') {
+    throw new DateFormatError(
+      `inputDate must be a string, received ${typeof inputDate}`,
+      ERROR_CODES.INVALID_ARGUMENT,
+    );
+  }
+
+  const table = handlers ?? TOKEN_REGISTRY;
+
+  if (inputFormat == null) {
+    const detected = detectFormat(inputDate, table, options.outputFormat);
+    if (detected === null) {
+      return { tokens: [], values: nullProtoMap(), mismatched: true };
+    }
+    return { ...parseWith(inputDate, detected, table), detected };
+  }
+
+  if (typeof inputFormat !== 'string') {
+    throw new DateFormatError(
+      `inputFormat must be a string or null, received ${typeof inputFormat}`,
+      ERROR_CODES.INVALID_ARGUMENT,
+    );
+  }
+
+  return parseWith(inputDate, inputFormat, table);
 }

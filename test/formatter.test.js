@@ -7,11 +7,19 @@ describe('argument and option validation', () => {
   it.each([
     [null, 'yyyy', 'yyyy'],
     [123, 'yyyy', 'yyyy'],
-    ['2025', null, 'yyyy'],
+    ['2025', 123, 'yyyy'],
     ['2025', 'yyyy', null],
     ['2025', 'yyyy', 123],
   ])('rejects bad argument types', (a, b, c) => {
     expect(() => formatDate(a, b, c)).toThrow(DateFormatError);
+  });
+
+  it('treats a null inputFormat as "detect it"', () => {
+    expect(formatDate('20250425', null, 'dd/MM/yyyy')).toBe('25/04/2025');
+  });
+
+  it('accepts an omitted inputFormat', () => {
+    expect(formatDate('20250425', undefined, 'dd/MM/yyyy')).toBe('25/04/2025');
   });
 
   it('rejects null options', () => {
@@ -391,8 +399,8 @@ describe('silent mode does not hide caller mistakes', () => {
     () => formatDate(null, 'yyyy', 'yyyy', { errorPolicy: 'silent' }),
     () => formatDate(undefined, 'yyyy', 'yyyy', { errorPolicy: 'silent' }),
     () => formatDate(42, 'yyyy', 'yyyy', { errorPolicy: 'silent' }),
-    () => formatDate('2025', null, 'yyyy', { errorPolicy: 'silent' }),
     () => formatDate('2025', 'yyyy', null, { errorPolicy: 'silent' }),
+    () => formatDate('2025', 123, 'yyyy', { errorPolicy: 'silent' }),
     () => formatDate('2025', 'yyyy', 'yyyy', null),
   ];
 
@@ -468,81 +476,6 @@ describe('range validation', () => {
       errorPolicy: 'silent',
     });
     expect(typeof out).toBe('string');
-  });
-});
-
-describe('strictTokens', () => {
-  it('treats an unknown word as literal text by default', () => {
-    expect(formatDate('20250425', 'yyyyMMdd', 'Week 12 of yyyy')).toBe(
-      'Week 12 of 2025',
-    );
-  });
-
-  it('rejects an unknown word when strictTokens is on', () => {
-    expect(() =>
-      formatDate('20250425', 'yyyyMMdd', 'Week yyyy', { strictTokens: true }),
-    ).toThrow(/Unknown token "Week"/);
-  });
-
-  it('still allows bracketed literals under strictTokens', () => {
-    expect(
-      formatDate('20250425', 'yyyyMMdd', '[Week] yyyy', { strictTokens: true }),
-    ).toBe('Week 2025');
-  });
-
-  it('still allows a declared custom token under strictTokens', () => {
-    expect(
-      formatDate('20250425', 'yyyyMMdd', 'yyyy-Q', {
-        strictTokens: true,
-        customTokens: { Q: () => 'Q1' },
-      }),
-    ).toBe('2025-Q1');
-  });
-
-  it('still allows punctuation under strictTokens', () => {
-    expect(
-      formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy', { strictTokens: true }),
-    ).toBe('25/04/2025');
-  });
-});
-
-describe('verifyLiterals option', () => {
-  it('still converts a correctly separated input when disabled', () => {
-    expect(
-      formatDate('2025-04-25', 'yyyy-MM-dd', 'dd/MM/yyyy', {
-        verifyLiterals: false,
-      }),
-    ).toBe('25/04/2025');
-  });
-
-  it('reports a mismatched separator even when disabled, because skipping it desynchronises the cursor', () => {
-    expect(() =>
-      formatDate('20250425', 'yyyy-MM-dd', 'MM/yyyy', {
-        verifyLiterals: false,
-      }),
-    ).toThrow(expect.objectContaining({ code: ERROR_CODES.INPUT_MISMATCH }));
-  });
-
-  it('returns the raw input for that case in silent mode', () => {
-    expect(
-      formatDate('20250425', 'yyyy-MM-dd', 'MM/yyyy', {
-        verifyLiterals: false,
-        errorPolicy: 'silent',
-      }),
-    ).toBe('20250425');
-  });
-
-  it('does not disable corrupt-token or trailing-input detection', () => {
-    expect(() =>
-      formatDate('2025AB25', 'yyyyMMdd', 'dd/MM/yyyy', {
-        verifyLiterals: false,
-      }),
-    ).toThrow(expect.objectContaining({ code: ERROR_CODES.INPUT_MISMATCH }));
-    expect(() =>
-      formatDate('20250425JUNK', 'yyyyMMdd', 'dd/MM/yyyy', {
-        verifyLiterals: false,
-      }),
-    ).toThrow(expect.objectContaining({ code: ERROR_CODES.INPUT_MISMATCH }));
   });
 });
 

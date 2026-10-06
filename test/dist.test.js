@@ -99,44 +99,12 @@ describe('dist manifest integrity', () => {
   });
 });
 
-describe('exported state cannot be mutated', () => {
-  const mutationAttempts = [
-    ['MONTH_NAMES', 3, 'MUTATED'],
-    ['MONTH_ABBREV', 3, 'XXX'],
-    ['BUILTIN_TOKENS', 0, 'ZZZ'],
-    ['TOKEN_FIELD_MAP', 'dd', 'nonsense'],
-    ['FIELD_GROUPS', 'month', []],
-    ['ERROR_CODES', 'INVALID_ARGUMENT', 'hacked'],
-  ];
-
-  it.each(mutationAttempts)('rejects mutating %s', (name, key, value) => {
-    const target = publicApi[name];
-    const before = JSON.stringify(
-      Array.isArray(target) ? target : { ...target },
-    );
-    try {
-      target[key] = value;
-    } catch {
-      // Frozen objects throw in strict mode, which is the expected outcome.
-    }
-    const after = JSON.stringify(
-      Array.isArray(target) ? target : { ...target },
-    );
-    expect(after).toBe(before);
-  });
-
-  it('rejects adding a token to the registry', () => {
+describe('error metadata cannot be mutated', () => {
+  it('rejects writing a code onto ERROR_CODES', () => {
+    expect(Object.isFrozen(publicApi.ERROR_CODES)).toBe(true);
     expect(() => {
-      publicApi.TOKEN_REGISTRY.ZZ = { field: 'year' };
+      publicApi.ERROR_CODES.INVALID_ARGUMENT = 'hacked';
     }).toThrow();
-    expect(publicApi.TOKEN_REGISTRY.ZZ).toBeUndefined();
-  });
-
-  it('rejects replacing a built-in handler', () => {
-    expect(() => {
-      publicApi.DEFAULT_HANDLERS.MM = () => 'HACKED';
-    }).toThrow();
-    expect(publicApi.formatDate('20250425', 'yyyyMMdd', 'MM')).toBe('04');
   });
 });
 

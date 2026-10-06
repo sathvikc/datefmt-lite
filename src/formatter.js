@@ -35,7 +35,8 @@ const RESERVED_TOKENS = new Set([
  * rearranged into whatever the output format asks for.
  *
  * @param {string} inputDate
- * @param {string} inputFormat
+ * @param {string|null} [inputFormat] Omit or pass `null` to detect it from the
+ *   input, guided by the fields the output format needs.
  * @param {string} outputFormat
  * @param {object} [options]
  * @param {'throw'|'silent'} [options.errorPolicy='throw'] `'silent'` never
@@ -53,12 +54,6 @@ const RESERVED_TOKENS = new Set([
  * @param {'off'|'lenient'|'strict'} [options.validate='off'] Range checking.
  *   `'off'` keeps the no-assumptions default; `'strict'` rejects impossible
  *   dates; `'lenient'` clamps them.
- * @param {boolean} [options.verifyLiterals=true] Verify literal separators in
- *   `inputFormat` against the input instead of skipping them by declared width.
- * @param {boolean} [options.strictTokens=false] Treat unrecognised words in
- *   `outputFormat` as errors rather than literal text. Bracketed groups and the
- *   structural separators `T`, `Z`, `W`, `a`, `t` and `z` remain allowed, so ISO
- *   8601 output keeps working.
  * @returns {string}
  * @throws {DateFormatError}
  *
@@ -85,8 +80,6 @@ export function formatDate(inputDate, inputFormat, outputFormat, options = {}) {
     overrideTokens,
     defaultTokens,
     validate = 'off',
-    verifyLiterals = true,
-    strictTokens = false,
   } = options;
 
   if (!ERROR_POLICIES.has(errorPolicy)) {
@@ -109,6 +102,12 @@ export function formatDate(inputDate, inputFormat, outputFormat, options = {}) {
     throw new DateFormatError(
       `yearConverter must be a function, received ${typeof yearConverter}`,
       ERROR_CODES.INVALID_OPTION,
+    );
+  }
+  if (inputFormat != null && typeof inputFormat !== 'string') {
+    throw new DateFormatError(
+      `inputFormat must be a string or null, received ${typeof inputFormat}`,
+      ERROR_CODES.INVALID_ARGUMENT,
     );
   }
   if (typeof outputFormat !== 'string') {
@@ -150,14 +149,14 @@ export function formatDate(inputDate, inputFormat, outputFormat, options = {}) {
     };
   }
 
-  const parsed = extractTokens(inputDate, inputFormat, table, {
-    verifyLiterals,
-  });
+  const parsed = extractTokens(inputDate, inputFormat, table, { outputFormat });
 
   if (parsed.mismatched) {
     if (errorPolicy === 'silent') return inputDate;
     throw new DateFormatError(
-      `Input does not match inputFormat "${truncate(inputFormat)}"`,
+      inputFormat == null
+        ? `Could not detect an input format for ${truncate(inputDate)}`
+        : `Input does not match inputFormat "${truncate(inputFormat)}"`,
       ERROR_CODES.INPUT_MISMATCH,
     );
   }
@@ -197,7 +196,6 @@ export function formatDate(inputDate, inputFormat, outputFormat, options = {}) {
         customTokens: custom,
       },
       errorPolicy,
-      strictTokens,
     });
   } catch (err) {
     if (errorPolicy === 'silent') return inputDate;

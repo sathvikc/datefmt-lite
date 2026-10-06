@@ -277,21 +277,6 @@ describe('structured corpus', () => {
     },
   );
 
-  it('requires brackets around literal words under strictTokens', () => {
-    // strictTokens exists to catch typos, so a literal word must be escaped.
-    expect(() =>
-      formatDate('20250425', 'yyyyMMdd', 'ISO yyyy', { strictTokens: true }),
-    ).toThrow(/Unknown token "ISO"/);
-    expect(
-      formatDate('20250425', 'yyyyMMdd', '[ISO] yyyy', { strictTokens: true }),
-    ).toBe('ISO 2025');
-    expect(
-      formatDate('20250425030709', 'yyyyMMddHHmmss', 'yyyy-MM-dd[T]HH:mm:ss', {
-        strictTokens: true,
-      }),
-    ).toBe('2025-04-25T03:07:09');
-  });
-
   it('converts timestamps into every output format', () => {
     const input = '20250715093045';
     for (const outputFormat of [
