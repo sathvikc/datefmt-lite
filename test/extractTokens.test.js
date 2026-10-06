@@ -72,12 +72,20 @@ describe('numeric extraction', () => {
     expect(extractTokens('20250425JUNK', 'yyyyMMdd').mismatched).toBe(true);
   });
 
-  it('treats a token past the end of input as absent, not corrupt', () => {
-    const r = extractTokens('2025', 'yyyyMMdd');
+  it('reads what it can from a truncated record and reports the mismatch', () => {
+    // The values that did parse are still reported, so a caller doing a partial
+    // recovery has them, while `mismatched` records that the shape was wrong.
+    const r = extractTokens('2025', 'yyyyMM');
     expect(toks(r)).toEqual(['yyyy']);
     expect(val(r).MM).toBeNull();
-    expect(val(r).dd).toBeNull();
-    expect(r.mismatched).toBe(false);
+    expect(r.mismatched).toBe(true);
+  });
+
+  it('flags a format whose widths overrun the input', () => {
+    // MMdd needs four characters; '415' has three, so the record cannot have had
+    // this shape even though yyyy-shaped reads inside it are valid.
+    expect(extractTokens('415', 'MMdd').mismatched).toBe(true);
+    expect(extractTokens('2025', 'yyyyMMdd').mismatched).toBe(true);
   });
 
   it('treats non-numeric characters in a token slot as corrupt', () => {
@@ -198,9 +206,12 @@ describe('literal-only and edge formats', () => {
     expect(extractTokens('abd', 'abc').mismatched).toBe(true);
   });
 
-  it('does not treat a word as tokens', () => {
+  it('treats an unbracketed word as literal text, not as tokens', () => {
+    // "day" contains the d and y tokens, but as a word it is literal text.
     const r = extractTokens('2025 day 04', 'yyyy day MM');
-    expect(r.mismatched).toBe(true);
+    expect(toks(r)).toEqual(['yyyy', 'MM']);
+    expect(val(r).MM).toBe('04');
+    expect(r.mismatched).toBe(false);
   });
 
   it('does not let a prototype member be read as a token', () => {
