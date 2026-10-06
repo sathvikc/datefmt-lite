@@ -1,20 +1,23 @@
 {
   "presets": [
-    ["@babel/preset-env", {
-      "targets": {
-        "node": "12",
-        "browsers": ">0.25%, not dead"
-      },
-      "modules": false
-    }]
+    [
+      "@babel/preset-env",
+      {
+        "targets": "> 0.5%, last 2 versions, not dead, node >= 18",
+        "modules": false
+      }
+    ]
   ],
   "env": {
     "test": {
       "presets": [
-        ["@babel/preset-env", {
-          "targets": { "node": "current" },
-          "modules": "commonjs"
-        }]
+        [
+          "@babel/preset-env",
+          {
+            "targets": { "node": "current" },
+            "modules": "commonjs"
+          }
+        ]
       ]
     }
   }
