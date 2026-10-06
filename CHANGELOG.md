@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.1] – 2026-10-05
+
+### 🐛 Fixes
+
+- **TypeScript `require()` consumers no longer get TS1479.** `types` sat as a
+  single top-level condition in the exports map, so `require()` resolved to
+  `types/index.d.ts`. Because the package is `"type": "module"`, TypeScript
+  reads that file as ESM and reports "the current file is a CommonJS module
+  whose imports will produce 'require' calls; however, the referenced file is
+  an ECMAScript module". Every CommonJS TypeScript consumer failed to compile.
+  The map now nests conditions so `import` and `require` each carry their own
+  `types`, and `types/index.d.cts` ships alongside `index.d.ts`.
+- `npm run test:dist` gained a fourteenth check asserting the two branches use
+  separate declaration files and that the `.d.cts` stays in sync with the
+  `.d.ts`. Reintroducing the single-`types` map fails the suite.
+
+No runtime change. Both entrypoints still return `25/04/2025` for
+`formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy')`.
+
 ## [2.2.0] – 2026-10-05
 
 ### 📦 Packaging

@@ -155,19 +155,29 @@ function probe(file) {
 await check('exports map is well formed', () => {
   const entry = pkg.exports?.['.'];
   assert(entry && typeof entry === 'object', 'exports["."] missing');
-  for (const cond of ['types', 'import', 'require']) {
+  for (const cond of ['import', 'require']) {
     assert(
       Object.hasOwn(entry, cond),
       `exports["."] is missing the "${cond}" condition`,
     );
+    assert(
+      entry[cond] && typeof entry[cond] === 'object',
+      `exports["."].${cond} must be a nested condition object so it can carry its own types`,
+    );
+    for (const sub of ['types', 'default']) {
+      assert(
+        Object.hasOwn(entry[cond], sub),
+        `exports["."].${cond} is missing the "${sub}" condition`,
+      );
+    }
   }
   assert(
-    rel(entry.require) === rel(pkg.main),
-    `exports["."].require must point at main (${pkg.main})`,
+    rel(entry.require.default) === rel(pkg.main),
+    `exports["."].require.default must point at main (${pkg.main})`,
   );
   assert(
-    rel(entry.types) === rel(pkg.types),
-    `exports["."].types must point at ${pkg.types}`,
+    rel(entry.import.types) === rel(pkg.types),
+    `exports["."].import.types must point at ${pkg.types}`,
   );
   assert(
     pkg.main.endsWith('.cjs'),
@@ -175,6 +185,38 @@ await check('exports map is well formed', () => {
   );
   return `${Object.keys(entry).join(', ')}`;
 });
+
+await check(
+  'require() gets CommonJS declarations, import() gets ESM ones',
+  () => {
+    const requireTypes = rel(pkg.exports['.'].require.types);
+    const importTypes = rel(pkg.exports['.'].import.types);
+    assert(
+      requireTypes.endsWith('.d.cts'),
+      `a .cts consumer imports the package through require(), which TypeScript
+resolves as CommonJS. Its types must therefore be declared by a .d.cts file, so
+the require branch must not point at ${requireTypes}. Sharing one .d.ts between
+both branches makes TypeScript treat the CommonJS consumer as importing an ES
+module and report TS1479.`,
+    );
+    assert(
+      requireTypes !== importTypes,
+      'the import and require branches must not share one declaration file, ' +
+        'otherwise the CJS consumer resolves to an ESM declaration (TS1479)',
+    );
+    assert(
+      importTypes.endsWith('.d.ts') && !importTypes.endsWith('.d.cts'),
+      `import branch should use a .d.ts, got ${importTypes}`,
+    );
+    const decls = readFileSync(join(pkgDir, requireTypes), 'utf8');
+    const esmDecls = readFileSync(join(pkgDir, importTypes), 'utf8');
+    assert(
+      decls === esmDecls,
+      'types/index.d.cts has drifted from types/index.d.ts; regenerate it with `cp types/index.d.ts types/index.d.cts`',
+    );
+    return `${requireTypes} + ${importTypes}`;
+  },
+);
 
 await check('every exports target exists on disk', () => {
   const targets = [];
