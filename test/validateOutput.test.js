@@ -1,236 +1,275 @@
 import { validateOutput } from '../src/validateOutput.js';
-import { DEFAULT_HANDLERS } from '../src/handlers.js';
+import { ERROR_CODES } from '../src/errors.js';
 
-describe('validateOutput', () => {
-  const handlers = DEFAULT_HANDLERS;
-  const customTokens = {};
+const dp = (o = {}) => ({
+  year: null,
+  month: null,
+  day: null,
+  hour: null,
+  minute: null,
+  second: null,
+  ...o,
+});
 
-  test('should throw for unknown token in throw mode', () => {
-    expect(() =>
-      validateOutput({
-        parsedTokens: [],
-        outputFormat: 'QQ',
-        handlers,
-        customTokens,
-        defaultTokens: {},
-        overrideTokens: {},
-        errorPolicy: 'throw',
-      }),
-    ).toThrow('Unknown token "QQ" in output format');
+const run = (args) =>
+  validateOutput({
+    parsedTokens: [],
+    dateParts: dp(),
+    outputFormat: '',
+    errorPolicy: 'throw',
+    ...args,
   });
 
-  test('should fallback unknown token in silent mode', () => {
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: 'QQ',
-      handlers,
-      customTokens,
-      defaultTokens: {},
-      overrideTokens: {},
+const FULL = dp({
+  year: 2025,
+  month: 4,
+  day: 25,
+  hour: 3,
+  minute: 7,
+  second: 9,
+});
+
+describe('argument validation', () => {
+  it('rejects a non-string outputFormat', () => {
+    expect(() => run({ outputFormat: 42 })).toThrow(
+      expect.objectContaining({ code: ERROR_CODES.INVALID_ARGUMENT }),
+    );
+  });
+});
+
+describe('produceable tokens', () => {
+  it('returns a handler table for a fully populated date', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'MM', 'dd'],
+      dateParts: FULL,
+      outputFormat: 'dd/MM/yyyy',
+    });
+    expect(typeof table.dd).toBe('function');
+    expect(typeof table.MM).toBe('function');
+    expect(typeof table.yyyy).toBe('function');
+  });
+
+  it('allows every token in a field once one is available', () => {
+    const table = run({
+      parsedTokens: ['MM'],
+      dateParts: FULL,
+      outputFormat: 'MMMM',
+    });
+    expect(table.MMMM).toBeInstanceOf(Function);
+  });
+
+  it('treats a null field as unproduceable', () => {
+    expect(() =>
+      run({
+        parsedTokens: ['MM'],
+        dateParts: dp({ month: null }),
+        outputFormat: 'MMM',
+      }),
+    ).toThrow(/Cannot produce token "MMM"/);
+  });
+
+  it('reports the token on the error', () => {
+    try {
+      run({ parsedTokens: [], dateParts: dp(), outputFormat: 'dd' });
+    } catch (err) {
+      expect(err.code).toBe(ERROR_CODES.UNPRODUCIBLE_TOKEN);
+      expect(err.token).toBe('dd');
+    }
+  });
+});
+
+describe('precedence', () => {
+  it('overrideTokens beats defaultTokens', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'MM'],
+      dateParts: FULL,
+      outputFormat: 'dd',
+      overrides: { overrideTokens: { dd: '77' }, defaultTokens: { dd: '99' } },
+    });
+    expect(table.dd).toBe('77');
+  });
+
+  it('overrideTokens wins even when the token was parsed', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'MM', 'dd'],
+      dateParts: FULL,
+      outputFormat: 'dd',
+      overrides: { overrideTokens: { dd: 'forced' } },
+    });
+    expect(table.dd).toBe('forced');
+  });
+
+  it('defaultTokens applies when the field has no value at all', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'MM'],
+      dateParts: {
+        year: 2025,
+        month: 4,
+        day: null,
+        hour: null,
+        minute: null,
+        second: null,
+      },
+      outputFormat: 'dd',
+      overrides: { defaultTokens: { dd: '99' } },
+    });
+    expect(table.dd).toBe('99');
+  });
+
+  it('defaultTokens does not displace a field parsed under a sibling token', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'M'],
+      dateParts: FULL,
+      outputFormat: 'MM',
+      overrides: { defaultTokens: { MM: '11' } },
+    });
+    expect(table.MM).toBeInstanceOf(Function);
+  });
+
+  it('defaultTokens does not displace a custom token handler', () => {
+    const custom = () => 'CUSTOM';
+    const table = run({
+      dateParts: FULL,
+      outputFormat: 'MM',
+      overrides: {
+        customTokens: { MM: custom },
+        defaultTokens: { MM: 'DEFAULT' },
+      },
+    });
+    expect(table.MM).toBe(custom);
+  });
+
+  it('treats an explicit undefined override as present', () => {
+    const table = run({
+      dateParts: FULL,
+      outputFormat: 'MM',
+      overrides: {
+        overrideTokens: { MM: undefined },
+        defaultTokens: { MM: 'D' },
+      },
+    });
+    expect(table.MM).toBeUndefined();
+  });
+
+  it('defaultTokens is ignored when the token was parsed', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'MM', 'dd'],
+      dateParts: FULL,
+      outputFormat: 'dd',
+      overrides: { defaultTokens: { dd: '99' } },
+    });
+    expect(table.dd).toBeInstanceOf(Function);
+  });
+
+  it('accepts a function override', () => {
+    const fn = () => 'FN';
+    const table = run({
+      dateParts: FULL,
+      outputFormat: 'dd',
+      overrides: { overrideTokens: { dd: fn } },
+    });
+    expect(table.dd).toBe(fn);
+  });
+});
+
+describe('silent mode fallbacks', () => {
+  it('falls back to the literal token name', () => {
+    const table = run({
+      dateParts: dp(),
+      outputFormat: 'dd/MM/yyyy',
       errorPolicy: 'silent',
     });
-    expect(result).toEqual({ QQ: 'QQ' });
+    expect(table.dd).toBe('dd');
+    expect(table.MM).toBe('MM');
+    expect(table.yyyy).toBe('yyyy');
   });
 
-  test('should promote defaultTokens when not in parsedTokens', () => {
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: '',
-      handlers,
-      customTokens,
-      defaultTokens: { ss: '00' },
-      overrideTokens: {},
-      errorPolicy: 'throw',
+  it('uses a default instead of the literal name', () => {
+    const table = run({
+      dateParts: dp(),
+      outputFormat: 'dd',
+      errorPolicy: 'silent',
+      overrides: { defaultTokens: { dd: '99' } },
     });
-    expect(result).toEqual({ ss: '00' });
+    expect(table.dd).toBe('99');
+  });
+});
+
+describe('unknown tokens', () => {
+  it('treats an unrecognised word as literal text by default', () => {
+    const table = run({ dateParts: FULL, outputFormat: 'Date: yyyy' });
+    expect(table.Date).toBeUndefined();
   });
 
-  test('should not promote defaultTokens if parsedTokens includes the token', () => {
-    const result = validateOutput({
-      parsedTokens: ['ss'],
-      outputFormat: '',
-      handlers,
-      customTokens,
-      defaultTokens: { ss: '00' },
-      overrideTokens: {},
-      errorPolicy: 'throw',
+  it('does not treat a declared custom token as unknown', () => {
+    const Q = () => 'Q2';
+    const table = run({
+      dateParts: FULL,
+      outputFormat: 'yyyy-Q',
+      overrides: { customTokens: { Q } },
     });
-    expect(result).toEqual({});
+    expect(table.Q).toBe(Q);
   });
 
-  test('should preserve overrideTokens when no defaultTokens conflict', () => {
-    const overrideFn = () => 'override';
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: '',
-      handlers,
-      customTokens,
-      defaultTokens: {},
-      overrideTokens: { MM: overrideFn },
-      errorPolicy: 'throw',
-    });
-    expect(result).toEqual({ MM: overrideFn });
-  });
-
-  test('should let defaultTokens override overrideTokens when conflict', () => {
-    const overrideFn = () => 'override';
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: '',
-      handlers,
-      customTokens,
-      defaultTokens: { ss: '00' },
-      overrideTokens: { ss: overrideFn },
-      errorPolicy: 'throw',
-    });
-    // defaultTokens promotion replaces the override
-    expect(result).toEqual({ ss: '00' });
-  });
-
-  test('should throw when known token is not produceable in throw mode', () => {
+  it('throws for an unknown token when strictTokens is on', () => {
     expect(() =>
-      validateOutput({
-        parsedTokens: [],
-        outputFormat: 'yyyy',
-        handlers,
-        customTokens,
-        defaultTokens: {},
-        overrideTokens: {},
-        errorPolicy: 'throw',
-      }),
-    ).toThrow('Cannot produce token "yyyy" — no data or default');
+      run({ dateParts: FULL, outputFormat: 'Date: yyyy', strictTokens: true }),
+    ).toThrow(/Unknown token/);
   });
 
-  test('should fallback known but unrenderable token in silent mode', () => {
-    const result = validateOutput({
-      parsedTokens: [],
+  it('allows literal punctuation under strictTokens', () => {
+    expect(() =>
+      run({ dateParts: FULL, outputFormat: 'dd/MM/yyyy', strictTokens: true }),
+    ).not.toThrow();
+  });
+});
+
+describe('table shape', () => {
+  it('has no prototype', () => {
+    const table = run({ dateParts: FULL, outputFormat: 'yyyy' });
+    expect(Object.getPrototypeOf(table)).toBeNull();
+    expect(table.toString).toBeUndefined();
+  });
+
+  it('includes every built-in handler', () => {
+    const table = run({ dateParts: FULL, outputFormat: 'yyyy' });
+    for (const token of [
+      'yyyy',
+      'yy',
+      'MM',
+      'M',
+      'dd',
+      'd',
+      'HH',
+      'H',
+      'mm',
+      'm',
+      'ss',
+      's',
+      'MMM',
+      'MMMM',
+    ]) {
+      expect(typeof table[token]).toBe('function');
+    }
+  });
+
+  it('does not apply a default for a field that already has a value', () => {
+    const table = run({
+      parsedTokens: ['yyyy', 'MM', 'dd'],
+      dateParts: FULL,
       outputFormat: 'yyyy',
-      handlers,
-      customTokens,
-      defaultTokens: {},
-      overrideTokens: {},
-      errorPolicy: 'silent',
+      overrides: { defaultTokens: { dd: '01' } },
     });
-    expect(result).toEqual({ yyyy: 'yyyy' });
+    expect(table.dd).toBeInstanceOf(Function);
   });
 
-  test('should derive yyyy when yy is parsed', () => {
-    const result = validateOutput({
-      parsedTokens: ['yy'],
+  it('does not shadow a parsed token with an unused default', () => {
+    const table = run({
+      parsedTokens: ['yyyy'],
+      dateParts: FULL,
       outputFormat: 'yyyy',
-      handlers,
-      customTokens,
-      defaultTokens: {},
-      overrideTokens: {},
-      errorPolicy: 'throw',
+      overrides: { defaultTokens: { yyyy: 'nope' } },
     });
-    expect(result).toEqual({});
-  });
-
-  test('should throw for non-derived tokens when only yy is parsed in throw mode', () => {
-    expect(() =>
-      validateOutput({
-        parsedTokens: ['yy'],
-        outputFormat: 'yyyy-MM',
-        handlers,
-        customTokens,
-        defaultTokens: {},
-        overrideTokens: {},
-        errorPolicy: 'throw',
-      }),
-    ).toThrow('Cannot produce token "MM" — no data or default');
-  });
-
-  test('should fallback non-derived tokens when only yy is parsed in silent mode', () => {
-    const result = validateOutput({
-      parsedTokens: ['yy'],
-      outputFormat: 'yyyy-MM',
-      handlers,
-      customTokens,
-      defaultTokens: {},
-      overrideTokens: {},
-      errorPolicy: 'silent',
-    });
-    // 'yyyy' is derived; 'MM' falls back
-    expect(result).toEqual({ MM: 'MM' });
-  });
-
-  test('should handle multiple tokens with mixed promotion and fallback', () => {
-    const result = validateOutput({
-      parsedTokens: ['yy'],
-      outputFormat: 'yyyy-MM-dd',
-      handlers,
-      customTokens,
-      defaultTokens: { dd: '30' },
-      overrideTokens: {},
-      errorPolicy: 'silent',
-    });
-    // 'dd' from defaultTokens; 'yyyy' derived; 'MM' fallback
-    expect(result).toEqual({ dd: '30', MM: 'MM' });
-  });
-
-  test('should fallback literal words as tokens in silent mode', () => {
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: 'Today is yyyy',
-      handlers,
-      customTokens,
-      defaultTokens: {},
-      overrideTokens: {},
-      errorPolicy: 'silent',
-    });
-    expect(result).toEqual({
-      Today: 'Today',
-      is: 'is',
-      yyyy: 'yyyy',
-    });
-  });
-
-  test('should throw on literal words in throw mode', () => {
-    expect(() =>
-      validateOutput({
-        parsedTokens: [],
-        outputFormat: 'no tokens here',
-        handlers,
-        customTokens,
-        defaultTokens: {},
-        overrideTokens: {},
-        errorPolicy: 'throw',
-      }),
-    ).toThrow('Unknown token "no" in output format');
-  });
-
-  test('should return only defaultTokens when outputFormat has no tokens in silent mode', () => {
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: '',
-      handlers,
-      customTokens,
-      defaultTokens: { hh: '00', mm: '59' },
-      overrideTokens: {},
-      errorPolicy: 'silent',
-    });
-    expect(result).toEqual({ hh: '00', mm: '59' });
-  });
-
-  test('should use default empty configs when optional params omitted', () => {
-    // omit customTokens, defaultTokens, overrideTokens, errorPolicy
-    const result = validateOutput({
-      parsedTokens: [],
-      outputFormat: '',
-      handlers: DEFAULT_HANDLERS,
-    });
-    expect(result).toEqual({});
-  });
-
-  test('should default to throw errorPolicy when errorPolicy omitted', () => {
-    // default errorPolicy = 'throw'
-    expect(() =>
-      validateOutput({
-        parsedTokens: [],
-        outputFormat: 'ZZ',
-        handlers: DEFAULT_HANDLERS,
-      }),
-    ).toThrow('Unknown token "ZZ" in output format');
+    expect(table.yyyy).toBeInstanceOf(Function);
   });
 });

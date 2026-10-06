@@ -1,121 +1,200 @@
-import { normalizeFields } from '../src/normalizeFields.js';
+import { hasField, normalizeFields } from '../src/normalizeFields.js';
+import { ERROR_CODES } from '../src/errors.js';
 
-describe('normalizeFields', () => {
-  it('should map yyyy token to year', () => {
-    const tokens = { yyyy: 2025, MM: 4, dd: 12, tokens: ['yyyy', 'MM', 'dd'] };
-    const parts = normalizeFields(tokens);
-    expect(parts).toEqual({
-      tokens: ['yyyy', 'MM', 'dd'],
+const nf = (tokens, values, options) =>
+  normalizeFields({ tokens, values }, options);
+
+describe('argument validation', () => {
+  it.each([null, undefined, 'x', 42, true])('rejects %p', (input) => {
+    expect(() => normalizeFields(input)).toThrow(
+      expect.objectContaining({ code: ERROR_CODES.INVALID_ARGUMENT }),
+    );
+  });
+
+  it('accepts a flat map with a tokens array', () => {
+    expect(nf(['yyyy'], { yyyy: '2025' }).year).toBe(2025);
+  });
+});
+
+describe('field extraction', () => {
+  it('maps every field', () => {
+    const out = nf(['yyyy', 'MM', 'dd', 'HH', 'mm', 'ss'], {
+      yyyy: '2025',
+      MM: '04',
+      dd: '25',
+      HH: '03',
+      mm: '07',
+      ss: '09',
+    });
+    expect(out).toMatchObject({
       year: 2025,
       month: 4,
-      day: 12,
-      hour: null,
-      minute: null,
-      second: null,
+      day: 25,
+      hour: 3,
+      minute: 7,
+      second: 9,
     });
   });
 
-  it('should use yearConverter for yy token', () => {
-    const tokens = { yy: 25, M: 1, d: 9, tokens: ['yy', 'M', 'd'] };
-    const conv = (raw) => 1900 + raw;
-    const parts = normalizeFields(tokens, { yearConverter: conv });
-    expect(parts.year).toBe(1925);
-    expect(parts.month).toBe(1);
-    expect(parts.day).toBe(9);
+  it('defaults every absent field to null', () => {
+    const out = nf(['yyyy'], { yyyy: '2025' });
+    expect(out.month).toBeNull();
+    expect(out.day).toBeNull();
+    expect(out.hour).toBeNull();
+    expect(out.minute).toBeNull();
+    expect(out.second).toBeNull();
   });
 
-  it('should throw error when converting yy to yyyy and no converter provided', () => {
-    const tokens = { yy: 99, MM: 12, dd: 31, tokens: ['yy', 'MM', 'dd'] };
+  it('accepts single-digit tokens', () => {
+    const out = nf(['yyyy', 'M', 'd', 'H', 'm', 's'], {
+      yyyy: '2025',
+      M: '4',
+      d: '5',
+      H: '3',
+      m: '7',
+      s: '9',
+    });
+    expect(out).toMatchObject({
+      month: 4,
+      day: 5,
+      hour: 3,
+      minute: 7,
+      second: 9,
+    });
+  });
 
-    expect(() => normalizeFields(tokens)).toThrow(
-      'yearConverter is required when using two-digit year "yy" format',
+  it('prefers the wider token when both are present', () => {
+    expect(nf(['MM', 'M'], { MM: '04', M: '9' }).month).toBe(4);
+  });
+
+  it('falls back to the narrower token when the wider one is null', () => {
+    expect(nf(['MM', 'M'], { MM: null, M: '9' }).month).toBe(9);
+  });
+
+  it('ignores an empty-string value', () => {
+    expect(nf(['MM'], { MM: '' }).month).toBeNull();
+  });
+
+  it('preserves a zero value', () => {
+    expect(nf(['mm'], { mm: '00' }).minute).toBe(0);
+  });
+
+  it('copies the tokens array defensively', () => {
+    const tokens = ['yyyy'];
+    const out = nf(tokens, { yyyy: '2025' });
+    tokens.push('MM');
+    expect(out.tokens).toEqual(['yyyy']);
+    expect(out.tokens).not.toBe(tokens);
+  });
+
+  it('defaults tokens to an empty array', () => {
+    expect(normalizeFields({ values: {} }).tokens).toEqual([]);
+  });
+
+  it('exposes a custom token as its own field', () => {
+    const out = nf(['yyyy', 'Q'], { yyyy: '2025', Q: '2' });
+    expect(out.Q).toBe(2);
+  });
+
+  it('leaves a custom token null when it was unreadable', () => {
+    const out = nf(['yyyy', 'Q'], { yyyy: '2025', Q: null });
+    expect(out.Q).toBeNull();
+  });
+
+  it.each([
+    ['0x10', 'must reject hexadecimal-looking input'],
+    ['1e2', 'must reject exponent notation'],
+    [' 04', 'must reject padded input'],
+    ['4.5', 'must reject fractional input'],
+    ['+4', 'must reject signed input'],
+  ])('does not coerce %s with Number()', (raw) => {
+    expect(nf(['MM'], { MM: raw }).month).toBeNull();
+  });
+
+  it('accepts a zero-padded digit run', () => {
+    expect(nf(['MM'], { MM: '04' }).month).toBe(4);
+  });
+});
+
+describe('year handling', () => {
+  it('prefers yyyy over yy', () => {
+    expect(nf(['yyyy', 'yy'], { yyyy: '2025', yy: '99' }).year).toBe(2025);
+  });
+
+  it('uses yy with a converter', () => {
+    expect(
+      nf(['yy'], { yy: '25' }, { yearConverter: (y) => 2000 + y }).year,
+    ).toBe(2025);
+  });
+
+  it('uses yy as-is in silent mode without a converter', () => {
+    expect(nf(['yy'], { yy: '25' }, { errorPolicy: 'silent' }).year).toBe(25);
+  });
+
+  it('throws without a converter in throw mode', () => {
+    expect(() => nf(['yy'], { yy: '25' })).toThrow(
+      expect.objectContaining({ code: ERROR_CODES.INVALID_OPTION }),
     );
   });
 
-  it('should prefer MM over M, and dd over d', () => {
-    const tokens = {
-      MM: 11,
-      M: 3,
-      dd: 5,
-      d: 1,
-      tokens: ['MM', 'M', 'dd', 'd'],
-    };
-    const parts = normalizeFields(tokens);
-    expect(parts.month).toBe(11);
-    expect(parts.day).toBe(5);
+  it('names the yy token in the error', () => {
+    expect(() => nf(['yy'], { yy: '25' })).toThrow(/yearConverter/);
   });
 
-  it('should map hour/minute/second tokens correctly', () => {
-    const tokens = {
-      HH: 23,
-      H: 5,
-      mm: 7,
-      m: 2,
-      ss: 45,
-      s: 3,
-      tokens: ['HH', 'mm', 'ss'],
-    };
-    const parts = normalizeFields(tokens);
-    expect(parts.hour).toBe(23);
-    expect(parts.minute).toBe(7);
-    expect(parts.second).toBe(45);
-  });
-
-  it('should preserve the original tokens array', () => {
-    const seen = ['yy', 'MM', 'dd'];
-    const parts = normalizeFields(
-      { yy: 21, MM: 6, dd: 15, tokens: seen },
-      { errorPolicy: 'silent' },
+  it.each([
+    ['undefined', () => undefined],
+    ['null', () => null],
+    ['NaN', () => NaN],
+    ['Infinity', () => Infinity],
+    ['a string', () => 'abc'],
+    ['a float', () => 2025.5],
+    ['a negative', () => -1],
+    ['an object', () => ({})],
+  ])('rejects a yearConverter returning %s', (_label, fn) => {
+    expect(() => nf(['yy'], { yy: '25' }, { yearConverter: fn })).toThrow(
+      expect.objectContaining({ code: ERROR_CODES.INVALID_YEAR }),
     );
-    expect(parts.tokens).toStrictEqual(seen);
   });
 
-  it('should default tokens to an empty array when none provided', () => {
-    const parts = normalizeFields({ yyyy: 2021, MM: 7, dd: 20 });
-    expect(parts.tokens).toStrictEqual([]);
-  });
-
-  it('should handle non-array tokens by defaulting to empty array', () => {
-    const tokens = { yy: 30, M: 12, d: 31, tokens: 'not-an-array' };
-    const parts = normalizeFields(tokens, { yearConverter: (y) => 2000 + y });
-    expect(parts.tokens).toStrictEqual([]);
-  });
-
-  it('should prefer yyyy over yy when both are present', () => {
-    const tokens = {
-      yyyy: 1999,
-      yy: 49,
-      MM: 10,
-      dd: 5,
-      tokens: ['yyyy', 'yy', 'MM', 'dd'],
-    };
-    const parts = normalizeFields(tokens, { yearConverter: (y) => 1900 + y });
-    expect(parts.year).toBe(1999);
-  });
-
-  it('should leave fields null when tokens are missing', () => {
-    const parts = normalizeFields({ H: 15, m: 45, tokens: ['H', 'm'] });
-    expect(parts.year).toBeNull();
-    expect(parts.month).toBeNull();
-    expect(parts.day).toBeNull();
-    expect(parts.hour).toBe(15);
-    expect(parts.minute).toBe(45);
-    expect(parts.second).toBeNull();
-  });
-
-  it('should propagate errors thrown by yearConverter', () => {
-    const tokens = { yy: 75, M: 6, d: 14, tokens: ['yy', 'M', 'd'] };
-    const badConverter = () => {
-      throw new Error('converter failed');
-    };
+  it('reports NaN readably rather than as null', () => {
     expect(() =>
-      normalizeFields(tokens, { yearConverter: badConverter }),
-    ).toThrow('converter failed');
+      nf(['yy'], { yy: '25' }, { yearConverter: () => NaN }),
+    ).toThrow(/received NaN/);
   });
 
-  it('should map single-digit seconds token correctly', () => {
-    const parts = normalizeFields({ tokens: ['s'], s: '7' });
-    expect(parts.second).toBe(7);
-    expect(parts.tokens).toEqual(['s']);
+  it('accepts year zero', () => {
+    expect(nf(['yy'], { yy: '00' }, { yearConverter: () => 0 }).year).toBe(0);
+  });
+
+  it('rejects a non-numeric yyyy value', () => {
+    expect(() => nf(['yyyy'], { yyyy: 'ABCD' })).toThrow(
+      expect.objectContaining({ code: ERROR_CODES.INVALID_YEAR }),
+    );
+  });
+
+  it('accepts a zero year from yyyy', () => {
+    expect(nf(['yyyy'], { yyyy: '0000' }).year).toBe(0);
+  });
+
+  it('rejects a non-function yearConverter', () => {
+    expect(() => nf(['yy'], { yy: '25' }, { yearConverter: 'nope' })).toThrow(
+      expect.objectContaining({ code: ERROR_CODES.INVALID_OPTION }),
+    );
+  });
+});
+
+describe('hasField', () => {
+  it('is true for a populated field', () => {
+    expect(hasField({ month: 4 }, 'month')).toBe(true);
+  });
+
+  it('is false for null, undefined and missing keys', () => {
+    expect(hasField({ month: null }, 'month')).toBe(false);
+    expect(hasField({}, 'month')).toBe(false);
+    expect(hasField(null, 'month')).toBe(false);
+  });
+
+  it('is false for a zero-valued-but-present field only when null', () => {
+    expect(hasField({ minute: 0 }, 'minute')).toBe(true);
   });
 });
