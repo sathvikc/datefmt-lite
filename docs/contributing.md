@@ -7,9 +7,9 @@ Thanks for your interest in improving this library! Here's how to get started.
 ## 📦 Setup
 
 ```bash
-git clone https://github.com/your-org/your-repo.git
-cd your-repo
-yarn install
+git clone https://github.com/sathvikc/datefmt-lite.git
+cd datefmt-lite
+npm run install
 ```
 
 ---
@@ -17,7 +17,7 @@ yarn install
 ## 🧪 Run Tests
 
 ```bash
-yarn test
+npm run test
 ```
 
 Uses Jest. Tests live in `*.test.js` files next to their source.
@@ -27,7 +27,7 @@ Uses Jest. Tests live in `*.test.js` files next to their source.
 ## 🔨 Build the Library
 
 ```bash
-yarn build
+npm run build
 ```
 
 Builds CommonJS and ESM outputs to `dist/`
@@ -37,19 +37,19 @@ Builds CommonJS and ESM outputs to `dist/`
 ## 🧹 Scripts
 
 ```bash
-yarn clean      # Remove build artifacts
-yarn build      # Run both Babel + Rollup builds
-yarn test       # Run full test suite
-yarn prepare    # Hook used by publish process
+npm run clean      # Remove build artifacts
+npm run build      # Run both Babel + Rollup builds
+npm run test       # Run full test suite
+npm run prepare    # Hook used by publish process
 ```
 
 ---
 
 ## ✏️ Style Guide
 
-* Use Prettier defaults
-* Prefer small, composable functions
-* Stick to the core philosophy: **string-to-string conversion with zero dependencies**
+- Use Prettier defaults
+- Prefer small, composable functions
+- Stick to the core philosophy: **string-to-string conversion with zero dependencies**
 
 ---
 
@@ -69,9 +69,9 @@ src/
 
 ## ✅ Good First Issues
 
-* Add new formatting tokens (e.g. `Do` for ordinal day)
-* Improve test coverage for edge cases
-* Add support for `warn` errorPolicy mode
+- Add new formatting tokens (e.g. `Do` for ordinal day)
+- Improve test coverage for edge cases
+- Add support for `warn` errorPolicy mode
 
 ---
 
@@ -87,12 +87,12 @@ body (optional)
 
 Common types:
 
-* `feat`: New feature
-* `fix`: Bug fix
-* `refactor`: Code change that doesn’t fix a bug or add a feature
-* `test`: Adding or improving tests
-* `docs`: Documentation only
-* `chore`: Build system, CI, tooling
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code change that doesn’t fix a bug or add a feature
+- `test`: Adding or improving tests
+- `docs`: Documentation only
+- `chore`: Build system, CI, tooling
 
 Example:
 
@@ -104,7 +104,7 @@ refactor: restructure normalizeFields and add validation tests
 
 ## 🤝 Feedback & Bugs
 
-* Found a bug? [Open an issue](https://github.com/your-org/your-repo/issues)
-* Want to discuss design? Start a [discussion thread](https://github.com/your-org/your-repo/discussions)
+- Found a bug? [Open an issue](https://github.com/sathvikc/datefmt-lite/issues)
+- Want to discuss design? Start a [discussion thread](https://github.com/sathvikc/datefmt-lite/discussions)
 
 Thanks for helping make this library better!

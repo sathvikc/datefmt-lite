@@ -8,13 +8,13 @@ Convert date strings from one format to another using pure token-to-token logic�
 
 ## 🚀 Features
 
-* **Fast**: Parses and formats via pre‑compiled templates
-* **Pluggable Tokens**: Add or override tokens without touching core code
-* **Flexible Year Handling**: Supply a `yearConverter` to expand two‑digit years or provide defaults
-* **Override & Default Tokens**: Control individual token output on a per-call basis
-* **Error Policies**: Choose strict (throw) or silent (best‑effort) behavior
-* **Bracketed Literals**: Use `[text]` to preserve literals in format output
-* **Zero Dependencies**: Core library is pure JS—no external packages
+- **Fast**: Parses and formats via pre‑compiled templates
+- **Pluggable Tokens**: Add or override tokens without touching core code
+- **Flexible Year Handling**: Supply a `yearConverter` to expand two‑digit years or provide defaults
+- **Override & Default Tokens**: Control individual token output on a per-call basis
+- **Error Policies**: Choose strict (throw) or silent (best‑effort) behavior
+- **Bracketed Literals**: Use `[text]` to preserve literals in format output
+- **Zero Dependencies**: Core library is pure JS—no external packages
 
 ---
 
@@ -23,7 +23,7 @@ Convert date strings from one format to another using pure token-to-token logic�
 ```bash
 npm install datefmt-lite
 # or
-yarn add datefmt-lite
+npm run add datefmt-lite
 ```
 
 ---
@@ -46,17 +46,17 @@ formatDate('250425', 'yyMMdd', 'dd/MM/yyyy', {
 
 ## 📘 When to Use This Library
 
-* You control both the input and output formats
-* You want predictable, fast token-to-token formatting
-* You want fallback behavior instead of runtime errors
-* You don’t need built-in date math, timezone offsets, or localization (but you can inject that logic via tokens)
+- You control both the input and output formats
+- You want predictable, fast token-to-token formatting
+- You want fallback behavior instead of runtime errors
+- You don’t need built-in date math, timezone offsets, or localization (but you can inject that logic via tokens)
 
 ✅ Perfect for:
 
-* ETL data pipelines
-* Formatted export tools
-* Browser-safe string conversion
-* Small-bundle apps where you want full control
+- ETL data pipelines
+- Formatted export tools
+- Browser-safe string conversion
+- Small-bundle apps where you want full control
 
 ---
 
@@ -105,33 +105,33 @@ formatDate(inputDate, inputFormat, outputFormat, {
 
 ### errorPolicy: `'throw' | 'silent'`
 
-* `'throw'` (default): throws on parse/validation errors
-* `'silent'`: returns raw input if nothing parsed; otherwise returns best-effort output with literal token fallback
+- `'throw'` (default): throws on parse/validation errors
+- `'silent'`: returns raw input if nothing parsed; otherwise returns best-effort output with literal token fallback
 
 ➡️ See [`docs/formatting-behavior.md`](./docs/formatting-behavior.md)
 
 ### yearConverter
 
-* Required when using `yy` (2-digit year)
-* If not provided in silent mode, raw `yy` is used as-is (`'25' → 0025`)
+- Required when using `yy` (2-digit year)
+- If not provided in silent mode, raw `yy` is used as-is (`'25' → 0025`)
 
 ### customTokens
 
-* Add your own tokens
+- Add your own tokens
 
 ```js
 customTokens: {
-  Q: (p) => 'Q' + Math.ceil(p.month / 3)
+  Q: (p) => 'Q' + Math.ceil(p.month / 3);
 }
 ```
 
 ### overrideTokens
 
-* Override built-in or derived tokens (e.g., force day = '01')
+- Override built-in or derived tokens (e.g., force day = '01')
 
 ### defaultTokens
 
-* Provide fallback values when parsed data is missing
+- Provide fallback values when parsed data is missing
 
 ---
 
@@ -139,10 +139,10 @@ customTokens: {
 
 ```bash
 # Run tests
-yarn test
+npm run test
 
 # Build ESM and CJS
-yarn build
+npm run build
 ```
 
 ---
@@ -151,13 +151,13 @@ yarn build
 
 See [`/docs`](./docs/) for:
 
-* [`api.md`](./docs/api.md): Main `formatDate` function signature, options, and behavior
-* [`tokens.md`](./docs/tokens.md): List of supported tokens (e.g., `yyyy`, `dd`, `MMM`, `HH`) and how they're matched
-* [`examples.md`](./docs/examples.md): Real-world and edge-case formatting examples
-* [`formatting-behavior.md`](./docs/formatting-behavior.md): How `overrideTokens`, `defaultTokens`, and `errorPolicy` interact
-* [`internals.md`](./docs/internals.md): Behind-the-scenes architecture and function flow for contributors
-* [`contributing.md`](./docs/contributing.md): Development setup, code structure, and how to contribute
-* [`design.md`](./docs/design.md): Core philosophy, extensibility plan, and long-term goals
+- [`api.md`](./docs/api.md): Main `formatDate` function signature, options, and behavior
+- [`tokens.md`](./docs/tokens.md): List of supported tokens (e.g., `yyyy`, `dd`, `MMM`, `HH`) and how they're matched
+- [`examples.md`](./docs/examples.md): Real-world and edge-case formatting examples
+- [`formatting-behavior.md`](./docs/formatting-behavior.md): How `overrideTokens`, `defaultTokens`, and `errorPolicy` interact
+- [`internals.md`](./docs/internals.md): Behind-the-scenes architecture and function flow for contributors
+- [`contributing.md`](./docs/contributing.md): Development setup, code structure, and how to contribute
+- [`design.md`](./docs/design.md): Core philosophy, extensibility plan, and long-term goals
 
 ---
 

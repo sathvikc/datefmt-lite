@@ -23,8 +23,8 @@ formatDate(inputDate, inputFormat, outputFormat, options?) → string
 
 ### Returns
 
-* A formatted string in the desired `outputFormat`
-* Or the original `inputDate` if parsing fails and `errorPolicy === 'silent'`
+- A formatted string in the desired `outputFormat`
+- Or the original `inputDate` if parsing fails and `errorPolicy === 'silent'`
 
 ---
 
@@ -42,19 +42,19 @@ formatDate(inputDate, inputFormat, outputFormat, options?) → string
 
 ### errorPolicy
 
-* `'throw'` (default): throws on any parsing/validation/rendering issue
-* `'silent'`: suppresses errors and returns either best-effort output or the raw input
+- `'throw'` (default): throws on any parsing/validation/rendering issue
+- `'silent'`: suppresses errors and returns either best-effort output or the raw input
 
 ### yearConverter
 
-* Required if using `yy` (two-digit years)
-* Converts values like `25` → `2025`
-* If not provided in silent mode, `yy` is interpreted as-is (`25` → `0025`)
+- Required if using `yy` (two-digit years)
+- Converts values like `25` → `2025`
+- If not provided in silent mode, `yy` is interpreted as-is (`25` → `0025`)
 
 ### customTokens
 
-* Define your own token renderers.
-* Each token can be a static string or a function.
+- Define your own token renderers.
+- Each token can be a static string or a function.
 
 ```js
 customTokens: {
@@ -65,7 +65,7 @@ customTokens: {
 
 ### overrideTokens
 
-* Override any token with a fixed string or function
+- Override any token with a fixed string or function
 
 ```js
 overrideTokens: {
@@ -76,8 +76,8 @@ overrideTokens: {
 
 ### defaultTokens
 
-* Provide fallback values if tokens can't be parsed from input
-* Must be a string
+- Provide fallback values if tokens can't be parsed from input
+- Must be a string
 
 ```js
 defaultTokens: {
