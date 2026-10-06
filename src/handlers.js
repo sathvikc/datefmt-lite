@@ -1,4 +1,4 @@
-import { nullProtoMap } from './utils.js';
+import { buildTokenizer, nullProtoMap } from './utils.js';
 
 /**
  * Full month names, indexed 1-based (`month = 1` maps to `January`).
@@ -267,3 +267,14 @@ export const FIELD_PREFERENCE = Object.freeze(
  * @type {readonly string[]}
  */
 export const BUILTIN_TOKENS = Object.freeze(Object.keys(TOKEN_REGISTRY));
+
+/**
+ * Tokenizer bound to the built-in vocabulary.
+ *
+ * Held at module scope so the cache key is precomputed: the parser, the
+ * validator and the renderer all tokenize with the same vocabulary on every
+ * call, so hoisting this removes a sort and a join from each of them.
+ *
+ * @type {(format: string) => readonly import('./utils.js').Segment[]}
+ */
+export const tokenizeBuiltin = buildTokenizer(BUILTIN_TOKENS);

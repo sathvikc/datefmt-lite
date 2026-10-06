@@ -1,5 +1,5 @@
 import { ERROR_CODES, DateFormatError } from './errors.js';
-import { TOKEN_REGISTRY } from './handlers.js';
+import { TOKEN_REGISTRY, tokenizeBuiltin } from './handlers.js';
 import { hasOwn, nullProtoMap, tokenizeFormat } from './utils.js';
 
 const DIGITS_ONLY = /^\d+$/;
@@ -123,10 +123,14 @@ export function extractTokens(inputDate, inputFormat, handlers, options = {}) {
   const { verifyLiterals = true } = options;
   const table = handlers ?? TOKEN_REGISTRY;
 
-  const segments = tokenizeFormat(
-    inputFormat,
-    Object.keys(table).filter((name) => typeof name === 'string' && name),
-  );
+  const names = Object.keys(table);
+  const segments =
+    table === TOKEN_REGISTRY
+      ? tokenizeBuiltin(inputFormat)
+      : tokenizeFormat(
+          inputFormat,
+          names.filter((name) => typeof name === 'string' && name),
+        );
 
   const values = nullProtoMap();
   const tokens = [];

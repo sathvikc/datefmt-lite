@@ -13,6 +13,7 @@ const RESERVED_CHARS = /[-/\\^$*+?.()|[\]{}]/g;
 const TOKEN_SHAPE = /^[A-Za-z]+$/;
 
 const LETTER = /[a-zA-Z]/;
+const ALPHA_RUN = /^[a-zA-Z]+/;
 
 /**
  * Single characters that may stand between two tokens inside one alphabetic
@@ -21,12 +22,6 @@ const LETTER = /[a-zA-Z]/;
  * letting the tokens on either side still be found.
  */
 const STRUCTURAL_SEPARATORS = new Set(['T', 'Z', 'W', 't', 'z', 'a']);
-
-const emptyMatcher = () => {
-  const never = /(?!)()/y;
-  never.lastIndex = 0;
-  return never;
-};
 
 /**
  * Escapes a literal string for safe inclusion in a regular expression.
@@ -56,18 +51,60 @@ export function buildTokenPattern(tokens) {
 }
 
 /**
+ * Builds a reusable tokenizer bound to one token vocabulary.
+ *
+ * Callers that tokenize repeatedly with the same vocabulary — which is every
+ * pipeline call site, since the built-in tokens dominate — should hold on to the
+ * returned function. Building the cache key is then a plain concatenation
+ * instead of sorting and joining the vocabulary on every call, which measured as
+ * the single largest cost before this was hoisted.
+ *
+ * @param {Iterable<string>} tokens
+ * @returns {(format: string) => readonly Segment[]}
+ *
+ * @example
+ * const tokenize = buildTokenizer(BUILTIN_TOKENS);
+ * tokenize('yyyyMMdd'); // → [token yyyy, token MM, token dd]
+ */
+export function buildTokenizer(tokens) {
+  const tokenSet = new Set(
+    [...tokens].filter((name) => typeof name === 'string' && name),
+  );
+  const suffix = ` ${[...tokenSet].sort().join(',')}`;
+
+  return (format) => {
+    const key = format + suffix;
+
+    const cached = tokenizeCache.get(key);
+    if (cached !== undefined) return cached;
+
+    const segments = tokenizeUncached(format, tokenSet);
+
+    // Bounded because a caller may derive formats from data rather than config.
+    // An unbounded cache would then retain every distinct string ever seen.
+    if (tokenizeCache.size >= TOKENIZE_CACHE_LIMIT) {
+      tokenizeCache.delete(tokenizeCache.keys().next().value);
+    }
+    tokenizeCache.set(key, Object.freeze(segments));
+
+    return tokenizeCache.get(key);
+  };
+}
+
+/**
  * Compiles a sticky matcher for a token set.
  *
- * Sticky (`y`) matching anchors at `lastIndex`, which lets {@link tokenizeFormat}
- * walk a format string in a single left-to-right pass instead of repeatedly
- * scanning ahead for the next match.
+ * Sticky (`y`) matching anchors at `lastIndex`, which lets a caller walk a
+ * format string in a single left-to-right pass instead of repeatedly scanning
+ * ahead for the next match. {@link tokenizeFormat} no longer needs it, but it is
+ * exported for callers tokenizing with their own scanning logic.
  *
  * @param {Iterable<string>} tokens
  * @returns {RegExp} Sticky matcher, or a never-matching regex when empty.
  */
 export function buildTokenMatcher(tokens) {
   const pattern = buildTokenPattern(tokens);
-  if (!pattern) return emptyMatcher();
+  if (!pattern) return /(?!)()/y;
   return new RegExp(pattern, 'y');
 }
 
@@ -97,9 +134,20 @@ export function buildTokenMatcher(tokens) {
  * is rendered literally, with the brackets removed — the same convention used by
  * moment and `SimpleDateFormat`.
  *
+ * A token may be followed immediately by another token, which is what makes
+ * `yyyyMMdd` and the ISO `ddTHH:mm:ss` work, but it may not sit inside a longer
+ * word, so `day` stays literal rather than becoming `d` followed by `ay`. That
+ * decision is made per alphabetic run: a run is tokenized only when it
+ * decomposes entirely into known tokens, allowing at most one structural
+ * separator between them.
+ *
+ * Results are memoized. Tokenizing is pure and pipeline callers reuse the same
+ * format strings for every row, so the same work would otherwise repeat on each
+ * call.
+ *
  * @param {string} format
  * @param {Iterable<string>} tokens Known token names.
- * @returns {Segment[]}
+ * @returns {readonly Segment[]}
  *
  * @example
  * tokenizeFormat('yyyyMMdd', ['yyyy', 'MM', 'dd']);
@@ -110,10 +158,68 @@ export function buildTokenMatcher(tokens) {
  * // → [token yyyy, escaped '-', token MM]
  */
 export function tokenizeFormat(format, tokens) {
-  const tokenNames = [...tokens].filter(
-    (name) => typeof name === 'string' && name,
-  );
-  const tokenSet = new Set(tokenNames);
+  const key = tokenizerKey(tokens);
+
+  let tokenizer = tokenizerCache.get(key);
+  if (tokenizer === undefined) {
+    tokenizer = buildTokenizer(tokens);
+    tokenizerCache.set(key, tokenizer);
+  }
+
+  return tokenizer(format);
+}
+
+/**
+ * Builds a cache key identifying a token vocabulary by its sorted names.
+ *
+ * @param {Iterable<string>} tokens
+ * @returns {string}
+ */
+function tokenizerKey(tokens) {
+  if (Array.isArray(tokens)) {
+    const memoized = tokenizerKeyCache.get(tokens);
+    if (memoized !== undefined) return memoized;
+
+    const built = [...new Set(tokens)]
+      .filter((name) => typeof name === 'string' && name)
+      .sort()
+      .join(',');
+
+    tokenizerKeyCache.set(tokens, built);
+    return built;
+  }
+
+  return [...new Set(tokens)]
+    .filter((name) => typeof name === 'string' && name)
+    .sort()
+    .join(',');
+}
+
+/** Tokenizers retained per vocabulary, so the key is not rebuilt per call. */
+const tokenizerCache = new Map();
+
+/**
+ * Keys memoized by the identity of the token collection.
+ *
+ * Callers that pass the same array repeatedly — a constant vocabulary, for
+ * instance — then skip sorting and joining on every call, which measured as the
+ * dominant remaining cost. Weak so a discarded vocabulary can be collected.
+ */
+const tokenizerKeyCache = new WeakMap();
+
+/**
+ * Tokenize without consulting the cache.
+ *
+ * @param {string} format
+ * @param {Set<string>} tokenSet
+ * @returns {Segment[]}
+ */
+function tokenizeUncached(format, tokenSet) {
+  let maxLength = 0;
+  for (const name of tokenSet) {
+    if (name.length > maxLength) maxLength = name.length;
+  }
+
   const segments = [];
   let literalStart = 0;
   let i = 0;
@@ -144,20 +250,11 @@ export function tokenizeFormat(format, tokens) {
       continue;
     }
 
-    // A token may be followed by another token with no separator at all, which
-    // is what makes `yyyyMMdd` and the ISO `ddTHH` work. It may not sit inside a
-    // longer word, so `day` stays literal instead of becoming `d` plus `ay`.
-    //
-    // The decision is taken per alphabetic run, so each run is examined once and
-    // the walk stays linear.
-    let end = i;
-    while (end < format.length && LETTER.test(format[end])) end += 1;
-
+    const end = ALPHA_RUN.exec(format.slice(i))[0].length + i;
     const run = format.slice(i, end);
-    const tokenizable = decomposes(run, tokenSet);
 
-    if (tokenizable) {
-      const hit = longestPrefix(run, tokenSet);
+    if (decomposes(run, tokenSet, maxLength)) {
+      const hit = longestPrefix(run, tokenSet, maxLength);
       if (hit) {
         flushLiteral(i);
         segments.push({ type: 'token', value: hit });
@@ -166,7 +263,7 @@ export function tokenizeFormat(format, tokens) {
         continue;
       }
 
-      // The run is made of tokens but starts with a structural separator, as in
+      // The run is made of tokens but opens with a structural separator, as in
       // the ISO `T` between `dd` and `HH`. Leave it to the surrounding literal.
       i += 1;
       continue;
@@ -181,6 +278,12 @@ export function tokenizeFormat(format, tokens) {
 }
 
 /**
+ * Memoized tokenizer results, keyed by format plus the token vocabulary in use.
+ */
+const TOKENIZE_CACHE_LIMIT = 256;
+const tokenizeCache = new Map();
+
+/**
  * Reports whether an alphabetic run can be split into known tokens.
  *
  * A run qualifies only if every character belongs to a token, except for at
@@ -189,26 +292,27 @@ export function tokenizeFormat(format, tokens) {
  *
  * @param {string} run
  * @param {Set<string>} tokenSet
+ * @param {number} maxLength
  * @returns {boolean}
  */
-function decomposes(run, tokenSet) {
+function decomposes(run, tokenSet, maxLength) {
   let rest = run;
   let separatorsLeft = 1;
 
   while (rest) {
-    const matched = longestPrefix(rest, tokenSet);
+    const matched = longestPrefix(rest, tokenSet, maxLength);
     if (matched) {
       rest = rest.slice(matched.length);
       continue;
     }
 
     // A single structural separator may stand between two tokens, which is what
-    // ISO 8601 relies on: `ddTHH`. Both sides must be real tokens.
+    // ISO 8601 relies on. Both sides must be real tokens.
     if (
       separatorsLeft > 0 &&
       rest.length > 1 &&
       STRUCTURAL_SEPARATORS.has(rest[0]) &&
-      longestPrefix(rest.slice(1), tokenSet)
+      longestPrefix(rest.slice(1), tokenSet, maxLength)
     ) {
       separatorsLeft -= 1;
       rest = rest.slice(1);
@@ -224,12 +328,17 @@ function decomposes(run, tokenSet) {
 /**
  * The longest known token that prefixes a run.
  *
+ * Bounded by the longest token name, so a long literal word costs a handful of
+ * comparisons rather than one per character.
+ *
  * @param {string} run
  * @param {Set<string>} tokenSet
+ * @param {number} maxLength
  * @returns {string|null}
  */
-function longestPrefix(run, tokenSet) {
-  for (let end = run.length; end > 0; end -= 1) {
+function longestPrefix(run, tokenSet, maxLength) {
+  const limit = Math.min(run.length, maxLength);
+  for (let end = limit; end > 0; end -= 1) {
     const candidate = run.slice(0, end);
     if (tokenSet.has(candidate)) return candidate;
   }
@@ -239,13 +348,15 @@ function longestPrefix(run, tokenSet) {
 /**
  * Collects the distinct token names referenced by an already-tokenized format.
  *
- * @param {Segment[]} segments
+ * @param {readonly Segment[]} segments
  * @returns {string[]}
  */
 export function collectTokens(segments) {
   const seen = [];
-  for (const seg of segments) {
-    if (seg.type === 'token' && !seen.includes(seg.value)) seen.push(seg.value);
+  for (const segment of segments) {
+    if (segment.type === 'token' && !seen.includes(segment.value)) {
+      seen.push(segment.value);
+    }
   }
   return seen;
 }

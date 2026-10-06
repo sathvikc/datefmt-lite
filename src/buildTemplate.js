@@ -1,4 +1,15 @@
-import { hasOwn, nullProtoMap, tokenizeFormat } from './utils.js';
+import { DEFAULT_HANDLERS, tokenizeBuiltin } from './handlers.js';
+import { hasOwn, tokenizeFormat } from './utils.js';
+
+/**
+ * Render plans already compiled, keyed by output format.
+ *
+ * The plan depends only on the format and the token vocabulary, so a pipeline
+ * reformatting one column compiles once. Bounded for the same reason as the
+ * tokenizer cache: formats derived from data must not accumulate.
+ */
+const PLAN_CACHE_LIMIT = 256;
+const planCache = new Map();
 
 /**
  * Compiles an output format into an executable render plan.
@@ -24,11 +35,24 @@ export function buildTemplate(outputFormat, handlers) {
     );
   }
 
-  const table = handlers ?? nullProtoMap();
-  const segments = tokenizeFormat(
-    outputFormat,
-    Object.keys(table).filter((name) => typeof name === 'string' && name),
-  );
+  const table = handlers ?? DEFAULT_HANDLERS;
+
+  // The built-in vocabulary is by far the common case, and its tokenizer is
+  // hoisted, so the plan is cached under a bare format key.
+  const isBuiltin = table === DEFAULT_HANDLERS;
+  const key = isBuiltin
+    ? outputFormat
+    : `${outputFormat} ${Object.keys(table).sort().join(',')}`;
+
+  const cached = planCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const segments = isBuiltin
+    ? tokenizeBuiltin(outputFormat)
+    : tokenizeFormat(
+        outputFormat,
+        Object.keys(table).filter((name) => typeof name === 'string' && name),
+      );
 
   const steps = [];
   const pushText = (value) => {
@@ -45,7 +69,13 @@ export function buildTemplate(outputFormat, handlers) {
       pushText(segment.value);
     }
   }
-  return steps;
+
+  if (planCache.size >= PLAN_CACHE_LIMIT) {
+    planCache.delete(planCache.keys().next().value);
+  }
+  planCache.set(key, Object.freeze(steps));
+
+  return planCache.get(key);
 }
 
 /**

@@ -205,6 +205,9 @@ export function formatDate(inputDate, inputFormat, outputFormat, options = {}) {
   }
 
   return renderTemplate(
+    // Only the resolved token names matter when compiling, and those come from
+    // the token vocabulary rather than from the per-call handler values, so the
+    // plan can be cached across calls that share a vocabulary.
     buildTemplate(outputFormat, handlers),
     handlers,
     dateParts,

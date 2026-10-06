@@ -45,9 +45,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "benchmark": "node scripts/benchmark.mjs",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:dist && npm run benchmark",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run test:differential && npm run build && npm run test:dist && npm run benchmark",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run format:check && npm run lint && npm run typecheck && npm run test"
+    "prepublishOnly": "npm run format:check && npm run lint && npm run typecheck && npm run test",
+    "test:differential": "DATEFMT_REFERENCE=perf-baseline jest --config jest.config.cjs test/differential.test.js"
   },
   "keywords": [
     "date",

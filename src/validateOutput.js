@@ -4,7 +4,13 @@ import {
   truncateToken,
   unproducibleToken,
 } from './errors.js';
-import { DEFAULT_HANDLERS, FIELD_GROUPS, TOKEN_REGISTRY } from './handlers.js';
+import {
+  BUILTIN_TOKENS,
+  DEFAULT_HANDLERS,
+  FIELD_GROUPS,
+  TOKEN_REGISTRY,
+  tokenizeBuiltin,
+} from './handlers.js';
 import {
   collectTokens,
   hasOwn,
@@ -18,6 +24,9 @@ import {
  * (`T`), week numbering (`W`) and am/pm (`a`) remain expressible.
  */
 const STRUCTURAL = new Set(['T', 'Z', 'W', 'a', 't', 'z']);
+
+/** The built-in vocabulary, reused when the caller declares no custom tokens. */
+const BUILTIN_TOKEN_SET = new Set(BUILTIN_TOKENS);
 
 /**
  * Resolves the precedence chain for a single output token.
@@ -98,18 +107,38 @@ export function validateOutput({
     ...Object.keys(defaultTokens),
     ...Object.keys(customTokens),
   ];
-  const known = new Set([...Object.keys(TOKEN_REGISTRY), ...declared]);
 
-  const segments = tokenizeFormat(outputFormat, known);
-  const needed = collectTokens(segments);
+  // The common case is no custom tokens at all, so the built-in vocabulary is
+  // reused directly. Rebuilding that set, and the cache key it implies, was the
+  // largest single cost in the whole pipeline.
+  const known =
+    declared.length === 0
+      ? BUILTIN_TOKEN_SET
+      : new Set([...Object.keys(TOKEN_REGISTRY), ...declared]);
+
+  const needed =
+    declared.length === 0
+      ? collectTokens(tokenizeBuiltin(outputFormat))
+      : collectTokens(tokenizeFormat(outputFormat, known));
 
   const parsed = new Set(parsedTokens);
-  const table = nullProtoMap();
-  for (const [token, handler] of Object.entries(DEFAULT_HANDLERS)) {
-    table[token] = handler;
-  }
+
+  // With no custom tokens and nothing to override or default, the shared
+  // built-in table is already the answer. Returning it avoids copying 14
+  // handlers per call and lets the render plan cache hit.
+  // The shared built-in table is reused while it needs no changes at all. Any
+  // token that must fall back, and any custom handler, forces a private copy,
+  // because the shared table is frozen.
+  let table =
+    declared.length === 0 ? DEFAULT_HANDLERS : nullProtoMap(DEFAULT_HANDLERS);
+
+  const writable = () => {
+    if (table === DEFAULT_HANDLERS) table = nullProtoMap(DEFAULT_HANDLERS);
+    return table;
+  };
+
   for (const [token, handler] of Object.entries(customTokens)) {
-    table[token] = handler;
+    writable()[token] = handler;
   }
 
   // Under strictTokens an unrecognised word is a probable typo rather than
@@ -148,7 +177,7 @@ export function validateOutput({
       dateParts,
     );
     if (resolved.hit) {
-      table[token] = resolved.value;
+      writable()[token] = resolved.value;
       continue;
     }
 
@@ -172,7 +201,7 @@ export function validateOutput({
       );
     }
 
-    table[token] = token;
+    writable()[token] = token;
   }
 
   // Apply defaults last, but only where nothing of higher precedence already
@@ -186,7 +215,7 @@ export function validateOutput({
     if (spec && dateParts?.[spec.field] != null) continue;
     if (!spec && parsed.has(token)) continue;
 
-    table[token] = defaultTokens[token];
+    writable()[token] = defaultTokens[token];
   }
 
   return table;
