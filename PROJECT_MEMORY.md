@@ -33,7 +33,7 @@ The defensible differentiators, in priority order:
 
 **Do not** add date math, timezone handling, or locale support. `docs/design.md`
 protects this and it is correct — competing with `date-fns` on features loses.
-**Do not** add runtime dependencies; the zero-dep property *is* the product.
+**Do not** add runtime dependencies; the zero-dep property _is_ the product.
 
 ### What it is not
 
@@ -110,7 +110,7 @@ parser, the output validator and the renderer all go through it, so they
 structurally cannot disagree about what a token is.
 
 Before this, `validateOutput` and `buildTemplate` each built their own matcher
-from different inputs. That is *why* `formatDate('20250425','yyyyMMdd','yyyyMMdd')`
+from different inputs. That is _why_ `formatDate('20250425','yyyyMMdd','yyyyMMdd')`
 threw `Unknown token "yyyyMMdd"` — contiguous alphabetic runs were scraped as
 single unknown tokens, so every separator-free format, ISO 8601 output, and any
 literal word was unusable.
@@ -135,12 +135,12 @@ literal word was unusable.
 
 ### Caching (added recently, easy to break)
 
-| Cache | Where | Key | Cap |
-|---|---|---|---|
-| tokenizer results | `utils.js` `tokenizeCache` | length-prefixed `format` + vocabulary | 256, FIFO |
-| compiled plans | `buildTemplate.js` `planCache` | length-prefixed `outputFormat` (+ vocabulary) | 256, FIFO |
-| tokenizers | `utils.js` `tokenizerCache` | sorted vocabulary names | unbounded, tiny |
-| handler table | — | returns shared frozen `DEFAULT_HANDLERS` when pristine | — |
+| Cache             | Where                          | Key                                                    | Cap             |
+| ----------------- | ------------------------------ | ------------------------------------------------------ | --------------- |
+| tokenizer results | `utils.js` `tokenizeCache`     | length-prefixed `format` + vocabulary                  | 256, FIFO       |
+| compiled plans    | `buildTemplate.js` `planCache` | length-prefixed `outputFormat` (+ vocabulary)          | 256, FIFO       |
+| tokenizers        | `utils.js` `tokenizerCache`    | sorted vocabulary names                                | unbounded, tiny |
+| handler table     | —                              | returns shared frozen `DEFAULT_HANDLERS` when pristine | —               |
 
 Three bugs were found and fixed here; **all three are now regression-tested**:
 
@@ -148,7 +148,7 @@ Three bugs were found and fixed here; **all three are now regression-tested**:
    token name may contain the separator. Now length-prefixed.
 2. **Shallow freeze.** `Object.freeze(array)` left `.value` writable, so a caller
    could poison the cache process-wide. Each element is frozen too.
-3. **Stale vocabulary.** A `WeakMap` keyed on array *identity* returned stale
+3. **Stale vocabulary.** A `WeakMap` keyed on array _identity_ returned stale
    results after a caller mutated the array. Keys are derived from **contents**.
 
 `validateOutput` returns the **shared frozen** `DEFAULT_HANDLERS` when no custom /
@@ -159,18 +159,18 @@ which swaps in a private copy first. Verified leak-free under a hostile `Proxy`.
 
 ## 4. Behaviour contract (do not regress these)
 
-| Behaviour | Detail |
-|---|---|
-| `errorPolicy: 'silent'` | Never throws on **bad data**. Returns `inputDate` unchanged when the format is not honoured; renders unproducible tokens as their own name. |
+| Behaviour               | Detail                                                                                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `errorPolicy: 'silent'` | Never throws on **bad data**. Returns `inputDate` unchanged when the format is not honoured; renders unproducible tokens as their own name.                                                                              |
 | `errorPolicy: 'silent'` | **Still throws** on **caller mistakes** — non-string args, invalid `errorPolicy`/`validate`, non-function `yearConverter`, non-function `customTokens`, reserved token names. Hiding a caller bug is worse than failing. |
-| Input widths | `M`/`d`/`H`/`m`/`s` read **1 or 2 digits** (two tried first, fallback to one). `MM`/`dd`/`HH`/`mm`/`ss` exactly 2. `yyyy` exactly 4. |
-| Textual months | `MMM` **and** `MMMM` both parse full names *and* abbreviations, case-insensitively, longest match wins. |
-| Literal separators | **Verified** against the input by default. A mismatch, trailing content, a BOM or corrupt token content throws `INPUT_MISMATCH`. |
-| `verifyLiterals: false` | Only meaningful for direct `extractTokens` callers. Through `formatDate` a skipped separator desynchronises the cursor, so it still reports a mismatch rather than returning a wrong date. Documented as such. |
-| Precedence | `overrideTokens` > `customTokens` > parsed input > `defaultTokens` > literal name. Resolved **per field**, so a month parsed as `M` is not overwritten by `defaultTokens.MM`. |
-| `validate` | `'off'` by default — preserves the no-assumptions contract. `'lenient'` clamps, `'strict'` throws. Real leap-year rules (1900 and 2100 are not leap years; 2000 is). |
-| `strictTokens` | Rejects unrecognised words in the output format. Bracketed groups and `T`/`Z`/`W`/`a`/`t`/`z` stay allowed so ISO works. |
-| `mm` is minutes | Correct per Unicode TR35/CLDR. The PHP `date()` footgun where `m` = month does **not** apply here. |
+| Input widths            | `M`/`d`/`H`/`m`/`s` read **1 or 2 digits** (two tried first, fallback to one). `MM`/`dd`/`HH`/`mm`/`ss` exactly 2. `yyyy` exactly 4.                                                                                     |
+| Textual months          | `MMM` **and** `MMMM` both parse full names _and_ abbreviations, case-insensitively, longest match wins.                                                                                                                  |
+| Literal separators      | **Verified** against the input by default. A mismatch, trailing content, a BOM or corrupt token content throws `INPUT_MISMATCH`.                                                                                         |
+| `verifyLiterals: false` | Only meaningful for direct `extractTokens` callers. Through `formatDate` a skipped separator desynchronises the cursor, so it still reports a mismatch rather than returning a wrong date. Documented as such.           |
+| Precedence              | `overrideTokens` > `customTokens` > parsed input > `defaultTokens` > literal name. Resolved **per field**, so a month parsed as `M` is not overwritten by `defaultTokens.MM`.                                            |
+| `validate`              | `'off'` by default — preserves the no-assumptions contract. `'lenient'` clamps, `'strict'` throws. Real leap-year rules (1900 and 2100 are not leap years; 2000 is).                                                     |
+| `strictTokens`          | Rejects unrecognised words in the output format. Bracketed groups and `T`/`Z`/`W`/`a`/`t`/`z` stay allowed so ISO works.                                                                                                 |
+| `mm` is minutes         | Correct per Unicode TR35/CLDR. The PHP `date()` footgun where `m` = month does **not** apply here.                                                                                                                       |
 
 ### Error codes
 
@@ -199,8 +199,8 @@ chars so a pathological format cannot produce a 100 kB log line.
 
 **Mutation testing was used to audit this suite** and it is worth repeating after
 significant changes. The old suite reported 100% line coverage while the library
-could not round-trip its own primary format — coverage measured *which lines ran*,
-not *which inputs were tried*. Nine tests asserted broken behaviour as correct.
+could not round-trip its own primary format — coverage measured _which lines ran_,
+not _which inputs were tried_. Nine tests asserted broken behaviour as correct.
 
 Current coverage is ~97% statements / ~93% branches.
 
