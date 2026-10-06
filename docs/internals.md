@@ -27,16 +27,16 @@ Parses `inputDate` into raw pieces based on `inputFormat` tokens. Returns:
 
 Cleans and maps raw input values to final field names: `year`, `month`, `day`, etc.
 
-* Handles number conversion
-* Applies `yearConverter` if needed
-* Short-circuits on invalid inputs if `errorPolicy === 'silent'`
+- Handles number conversion
+- Applies `yearConverter` if needed
+- Short-circuits on invalid inputs if `errorPolicy === 'silent'`
 
 ### 3. `validateOutput(dateParts, outputFormat, options)`
 
 Ensures all output tokens can be generated:
 
-* Throws if token is missing and no default/override exists
-* In `silent` mode, skips missing ones
+- Throws if token is missing and no default/override exists
+- In `silent` mode, skips missing ones
 
 ### 4. `buildTemplate(outputFormat, tokenMap)`
 
@@ -67,9 +67,9 @@ When rendering each output token:
 
 ## 🔍 Parsing Notes
 
-* Greedy matching, longest tokens first
-* Uses `buildTokenRegex()` for parsing and rendering
-* Bracketed literals `[like this]` are preserved
+- Greedy matching, longest tokens first
+- Uses `buildTokenRegex()` for parsing and rendering
+- Bracketed literals `[like this]` are preserved
 
 ---
 
@@ -77,8 +77,8 @@ When rendering each output token:
 
 This library does not use `Date.parse()`, `Intl`, or `Date.toLocaleString()`.
 
-* All behavior is deterministic and string-based
-* Leap year, bounds checking, and calendar rules are opt-in via future `enableDateValidation`
+- All behavior is deterministic and string-based
+- Leap year, bounds checking, and calendar rules are opt-in via future `enableDateValidation`
 
 ---
 
@@ -86,12 +86,12 @@ This library does not use `Date.parse()`, `Intl`, or `Date.toLocaleString()`.
 
 The codebase is split into reusable modules:
 
-* `extractTokens.js`: input token parsing
-* `normalizeFields.js`: mapping raw fields
-* `validateOutput.js`: token validation rules
-* `buildTemplate.js`: compiles format string
-* `utils.js`: shared helpers
-* `formatter.js`: glue layer and public API
+- `extractTokens.js`: input token parsing
+- `normalizeFields.js`: mapping raw fields
+- `validateOutput.js`: token validation rules
+- `buildTemplate.js`: compiles format string
+- `utils.js`: shared helpers
+- `formatter.js`: glue layer and public API
 
 ---
 

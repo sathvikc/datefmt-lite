@@ -28,7 +28,7 @@ describe('normalizeFields', () => {
     const tokens = { yy: 99, MM: 12, dd: 31, tokens: ['yy', 'MM', 'dd'] };
 
     expect(() => normalizeFields(tokens)).toThrow(
-      'yearConverter is required when using two-digit year "yy" format'
+      'yearConverter is required when using two-digit year "yy" format',
     );
   });
 
@@ -65,7 +65,7 @@ describe('normalizeFields', () => {
     const seen = ['yy', 'MM', 'dd'];
     const parts = normalizeFields(
       { yy: 21, MM: 6, dd: 15, tokens: seen },
-      { errorPolicy: 'silent' }
+      { errorPolicy: 'silent' },
     );
     expect(parts.tokens).toStrictEqual(seen);
   });
@@ -109,14 +109,12 @@ describe('normalizeFields', () => {
       throw new Error('converter failed');
     };
     expect(() =>
-      normalizeFields(tokens, { yearConverter: badConverter })
+      normalizeFields(tokens, { yearConverter: badConverter }),
     ).toThrow('converter failed');
   });
 
   it('should map single-digit seconds token correctly', () => {
-    const parts = normalizeFields(
-      { tokens: ['s'], s: '7' }
-    );
+    const parts = normalizeFields({ tokens: ['s'], s: '7' });
     expect(parts.second).toBe(7);
     expect(parts.tokens).toEqual(['s']);
   });

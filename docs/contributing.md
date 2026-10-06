@@ -47,9 +47,9 @@ yarn prepare    # Hook used by publish process
 
 ## ✏️ Style Guide
 
-* Use Prettier defaults
-* Prefer small, composable functions
-* Stick to the core philosophy: **string-to-string conversion with zero dependencies**
+- Use Prettier defaults
+- Prefer small, composable functions
+- Stick to the core philosophy: **string-to-string conversion with zero dependencies**
 
 ---
 
@@ -69,9 +69,9 @@ src/
 
 ## ✅ Good First Issues
 
-* Add new formatting tokens (e.g. `Do` for ordinal day)
-* Improve test coverage for edge cases
-* Add support for `warn` errorPolicy mode
+- Add new formatting tokens (e.g. `Do` for ordinal day)
+- Improve test coverage for edge cases
+- Add support for `warn` errorPolicy mode
 
 ---
 
@@ -87,12 +87,12 @@ body (optional)
 
 Common types:
 
-* `feat`: New feature
-* `fix`: Bug fix
-* `refactor`: Code change that doesn’t fix a bug or add a feature
-* `test`: Adding or improving tests
-* `docs`: Documentation only
-* `chore`: Build system, CI, tooling
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code change that doesn’t fix a bug or add a feature
+- `test`: Adding or improving tests
+- `docs`: Documentation only
+- `chore`: Build system, CI, tooling
 
 Example:
 
@@ -104,7 +104,7 @@ refactor: restructure normalizeFields and add validation tests
 
 ## 🤝 Feedback & Bugs
 
-* Found a bug? [Open an issue](https://github.com/your-org/your-repo/issues)
-* Want to discuss design? Start a [discussion thread](https://github.com/your-org/your-repo/discussions)
+- Found a bug? [Open an issue](https://github.com/your-org/your-repo/issues)
+- Want to discuss design? Start a [discussion thread](https://github.com/your-org/your-repo/discussions)
 
 Thanks for helping make this library better!

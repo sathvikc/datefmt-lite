@@ -36,13 +36,13 @@ export function formatDate(
     customTokens = {},
     overrideTokens = {},
     defaultTokens = {},
-  } = {}
+  } = {},
 ) {
   const { tokens: parsedTokens, ...raw } = extractTokens(
     inputDate,
     inputFormat,
     DEFAULT_HANDLERS,
-    { errorPolicy }
+    { errorPolicy },
   );
 
   // Special case: in silent mode, if nothing valid was extracted, return input
@@ -57,7 +57,7 @@ export function formatDate(
   // Map raw input into named fields like year, month, etc.
   const dateParts = normalizeFields(
     { tokens: parsedTokens, ...raw },
-    { yearConverter, errorPolicy }
+    { yearConverter, errorPolicy },
   );
 
   // Validate that all required output tokens are present or handled

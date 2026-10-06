@@ -52,8 +52,8 @@ You can add your own tokens using `customTokens` in options:
 ```js
 formatDate('20250601', 'yyyyMMdd', 'yyyy [Q]Q', {
   customTokens: {
-    Q: (parts) => Math.ceil(parts.month / 3)
-  }
+    Q: (parts) => Math.ceil(parts.month / 3),
+  },
 });
 // → '2025 Q2'
 ```
@@ -64,9 +64,9 @@ Built-in token names are reserved. You can override them using `overrideTokens` 
 
 ## 🔍 Token Matching
 
-* Token extraction is greedy and longest-match wins
-* Unknown tokens will throw (unless in `'silent'` mode)
-* Tokens are case-sensitive
+- Token extraction is greedy and longest-match wins
+- Unknown tokens will throw (unless in `'silent'` mode)
+- Tokens are case-sensitive
 
 ---
 

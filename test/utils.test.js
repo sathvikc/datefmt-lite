@@ -24,7 +24,7 @@ describe('buildTokenRegex', () => {
     const handlers = { yyyy: () => {}, MM: () => {}, label: () => {} };
     const regex = buildTokenRegex(handlers);
     const matches = Array.from('yyyy-label-MM'.matchAll(regex)).map(
-      (m) => m[0]
+      (m) => m[0],
     );
     expect(matches).toEqual(['yyyy', 'label', 'MM']);
   });

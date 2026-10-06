@@ -6,16 +6,17 @@ Internal architecture and reasoning behind this date formatting library.
 
 ## 🎯 Core Philosophy
 
-* **Token-to-token conversion only**
-* **No Date objects**
+- **Token-to-token conversion only**
+- **No Date objects**
 
-  * Avoids `new Date()` and `Intl`
-  * No built-in timezone logic
-* **No dependencies** — designed for embeddable, zero-cost builds
-* **Predictable behavior**:
+  - Avoids `new Date()` and `Intl`
+  - No built-in timezone logic
 
-  * Parsing is greedy, literal-safe, and unambiguous
-  * Rendering uses a fixed resolution hierarchy
+- **No dependencies** — designed for embeddable, zero-cost builds
+- **Predictable behavior**:
+
+  - Parsing is greedy, literal-safe, and unambiguous
+  - Rendering uses a fixed resolution hierarchy
 
 ---
 
@@ -37,13 +38,13 @@ Each module follows single-responsibility principles:
 
 ### `'throw'`
 
-* Default strict mode
-* Fails on unknown tokens, missing inputs, or invalid configurations
+- Default strict mode
+- Fails on unknown tokens, missing inputs, or invalid configurations
 
 ### `'silent'`
 
-* Returns best-effort formatting
-* Prioritizes:
+- Returns best-effort formatting
+- Prioritizes:
 
   1. `overrideTokens`
   2. parsed input
@@ -52,8 +53,8 @@ Each module follows single-responsibility principles:
 
 ### Future modes
 
-* `'warn'`: log errors, continue formatting
-* `'coerce'`: use fallback/defaults automatically, no literal leakage
+- `'warn'`: log errors, continue formatting
+- `'coerce'`: use fallback/defaults automatically, no literal leakage
 
 ---
 
@@ -73,18 +74,18 @@ No global registration. You control all tokens through options.
 
 ## 🚫 What It Doesn’t Do (By Design)
 
-* No timezone shifts or offset parsing
-* No locale-based formatting or pluralization
-* No calendar correctness (unless enabled)
+- No timezone shifts or offset parsing
+- No locale-based formatting or pluralization
+- No calendar correctness (unless enabled)
 
 ---
 
 ## 🚧 Future Enhancements
 
-* `enableDateValidation`: check for leap years, invalid dates, etc.
-* TS typings: native `.d.ts` support for options and fields
-* Token aliases: support mapping `MMM` → `mon` or `Do` → `dth`
-* Grouping output templates for formatting reuse
+- `enableDateValidation`: check for leap years, invalid dates, etc.
+- TS typings: native `.d.ts` support for options and fields
+- Token aliases: support mapping `MMM` → `mon` or `Do` → `dth`
+- Grouping output templates for formatting reuse
 
 ---
 

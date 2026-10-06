@@ -14,7 +14,7 @@ describe('extractTokens', () => {
 
   it('should throw error when segment length mismatches expected token length', () => {
     expect(() =>
-      extractTokens('2025-4-25', 'yyyy-MM-dd', DEFAULT_HANDLERS)
+      extractTokens('2025-4-25', 'yyyy-MM-dd', DEFAULT_HANDLERS),
     ).toThrow('Input does not match inputFormat — failed at token "MM"');
   });
 
@@ -47,7 +47,7 @@ describe('extractTokens', () => {
 
   it('should throw when non-digit characters appear in a token position', () => {
     expect(() =>
-      extractTokens('20A5-04-25', 'yyyy-MM-dd', DEFAULT_HANDLERS)
+      extractTokens('20A5-04-25', 'yyyy-MM-dd', DEFAULT_HANDLERS),
     ).toThrow('Input does not match inputFormat — failed at token "yyyy"');
   });
 
@@ -83,7 +83,7 @@ describe('extractTokens', () => {
 
   it('should throw when input is too short for the final token', () => {
     expect(() => extractTokens('202504', 'yyyyMMdd', DEFAULT_HANDLERS)).toThrow(
-      /failed at token "dd"/
+      /failed at token "dd"/,
     );
   });
 
