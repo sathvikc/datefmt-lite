@@ -1,34 +1,36 @@
 # datefmt-lite
 
-**A lightweight, zero‑dependency string‑to‑string date format converter with pluggable tokens and an extensible architecture.**
+**Fixed-width date reformatting for data pipelines and constrained runtimes.**
 
-Convert date strings from one format to another using pure token-to-token logic—no internal `Date` objects and no assumptions. You control everything via inputs.
+`datefmt-lite` converts a date **string** from one format to another. It never
+constructs a `Date`, never touches `Intl`, and never applies a timezone. Whatever
+the input format can express is rearranged into whatever the output format asks
+for — nothing more, nothing assumed.
 
----
-
-## 🚀 Features
-
-- **Fast**: Parses and formats via pre‑compiled templates
-- **Pluggable Tokens**: Add or override tokens without touching core code
-- **Flexible Year Handling**: Supply a `yearConverter` to expand two‑digit years or provide defaults
-- **Override & Default Tokens**: Control individual token output on a per-call basis
-- **Error Policies**: Choose strict (throw) or silent (best‑effort) behavior
-- **Bracketed Literals**: Use `[text]` to preserve literals in format output
-- **Zero Dependencies**: Core library is pure JS—no external packages
+- **4.9 kB** gzipped, **zero dependencies**, no `Date` and no `Intl`
+- Compact (`yyyyMMdd`), ISO 8601, and human-readable formats all work
+- Verifies the input actually matched, so bad records fail loudly instead of
+  silently becoming wrong dates
+- Fiscal quarters, plant codes and period codes in three lines, via `customTokens`
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install datefmt-lite
-# or
-yarn add datefmt-lite
+```
+
+Works with both ESM and CommonJS:
+
+```js
+import { formatDate } from 'datefmt-lite'; // ESM
+const { formatDate } = require('datefmt-lite'); // CommonJS
 ```
 
 ---
 
-## 🔰 Quick Usage
+## Usage
 
 ```js
 import { formatDate } from 'datefmt-lite';
@@ -36,137 +38,245 @@ import { formatDate } from 'datefmt-lite';
 formatDate('20250425', 'yyyyMMdd', 'dd/MM/yyyy');
 // → '25/04/2025'
 
-formatDate('250425', 'yyMMdd', 'dd/MM/yyyy', {
-  yearConverter: (yy) => 2000 + yy,
-});
-// → '25/04/2025'
+formatDate('20250425', 'yyyyMMdd', 'yyyyMMdd');
+// → '20250425'          compact formats round-trip
+
+formatDate('20250425', 'yyyyMMdd', 'Day dd of MMMM');
+// → 'Day 25 of April'   literal text just works
+
+formatDate('25-Apr-2025', 'dd-MMM-yyyy', 'yyyy-MM-dd');
+// → '2025-04-25'        textual months parse in both directions
 ```
 
+### Why this exists
+
+Most date libraries want to hand you a `Date`. That is the wrong shape for a
+pipeline reformatting a fixed-width column, and it is unavailable entirely in
+some runtimes.
+
+| If you need…                                 | Use                            |
+| -------------------------------------------- | ------------------------------ |
+| `(string) → Date`, timezone math, locale     | `date-fns`, `dayjs`, `luxon`   |
+| A `Date` in a runtime without `Intl`         | this library                   |
+| COBOL `PIC 9(8)` → ISO reformatting          | this library                   |
+| Fiscal quarters / non-Gregorian period codes | this library + `customTokens`  |
+| Date arithmetic                              | anything else — this does none |
+
 ---
 
-## 📘 When to Use This Library
+## When to Use This Library
 
 - You control both the input and output formats
-- You want predictable, fast token-to-token formatting
-- You want fallback behavior instead of runtime errors
-- You don’t need built-in date math, timezone offsets, or localization (but you can inject that logic via tokens)
+- The data is positional and fixed-width rather than natural language
+- You are moving rows in a pipeline and cannot afford a silently wrong date
+- `Date` or `Intl` is unavailable, undesirable, or pulls in ICU
 
-✅ Perfect for:
-
-- ETL data pipelines
-- Formatted export tools
-- Browser-safe string conversion
-- Small-bundle apps where you want full control
+Not a fit if you need date arithmetic, timezones, or localization. That is
+deliberate: `datefmt-lite` rearranges strings and makes no calendar
+assumptions.
 
 ---
 
-## 🔠 Supported Tokens
+## Supported Tokens
 
-| Token | Meaning          | Example |
-| ----- | ---------------- | ------- |
-| yyyy  | full year        | 2025    |
-| yy    | 2-digit year     | 25      |
-| MMMM  | full month       | April   |
-| MMM   | short month      | Apr     |
-| MM    | 2-digit month    | 04      |
-| M     | 1/2-digit month  | 4       |
-| dd    | 2-digit day      | 09      |
-| d     | 1/2-digit day    | 9       |
-| HH    | 2-digit hour     | 03      |
-| H     | 1/2-digit hour   | 3       |
-| mm    | 2-digit minute   | 07      |
-| m     | 1/2-digit minute | 7       |
-| ss    | 2-digit second   | 09      |
-| s     | 1/2-digit second | 9       |
+| Token  | Meaning            | Output  | Input width         |
+| ------ | ------------------ | ------- | ------------------- |
+| `yyyy` | full year          | `2025`  | exactly 4 digits    |
+| `yy`   | 2-digit year       | `25`    | exactly 2 digits    |
+| `MMMM` | full month name    | `April` | full name or abbrev |
+| `MMM`  | short month        | `Apr`   | full name or abbrev |
+| `MM`   | 2-digit month      | `04`    | exactly 2 digits    |
+| `M`    | 1-or-2-digit month | `4`     | 1 or 2 digits       |
+| `dd`   | 2-digit day        | `09`    | exactly 2 digits    |
+| `d`    | 1-or-2-digit day   | `9`     | 1 or 2 digits       |
+| `HH`   | 2-digit hour       | `03`    | exactly 2 digits    |
+| `H`    | 1-or-2-digit hour  | `3`     | 1 or 2 digits       |
+| `mm`   | 2-digit minute     | `07`    | exactly 2 digits    |
+| `m`    | 1-or-2-digit min   | `7`     | 1 or 2 digits       |
+| `ss`   | 2-digit second     | `09`    | exactly 2 digits    |
+| `s`    | 1-or-2-digit sec   | `9`     | 1 or 2 digits       |
 
-➡️ Token definitions follow [Unicode Date Field Symbols](https://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table).
+The 14 implemented symbols follow their
+[Unicode TR35](https://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table)
+meanings for output. This is a deliberately partial subset, **not** a
+TR35-conformant parser: `Q`, `D`, `E`, `w`, `L`, `S` and the zone tokens are not
+implemented. `mm` is minutes, as in TR35 (the PHP `date()` convention where `m`
+means month does not apply here).
 
-➡️ See [`docs/tokens.md`](./docs/tokens.md) for the full list and examples.
+Note that output and input widths differ. `d` renders a single digit when
+appropriate, but on input it reads **one or two** digits, so `Mdd` correctly
+parses `0415` as 15 April.
+
+➡️ See [`docs/tokens.md`](./docs/tokens.md).
 
 ---
 
-## 🔧 Advanced Options
+## Options
 
 ```js
 formatDate(inputDate, inputFormat, outputFormat, {
-  errorPolicy: 'silent',
-  yearConverter: (yy) => 1900 + yy,
-  customTokens: {
-    Q: (p) => 'Q' + Math.ceil(p.month / 3),
-  },
-  overrideTokens: {
-    dd: '01',
-  },
-  defaultTokens: {
-    MM: '00',
-  },
+  errorPolicy: 'throw',
+  validate: 'off',
+  verifyLiterals: true,
+  strictTokens: false,
+  yearConverter: (yy) => 2000 + yy,
+  customTokens: { Q: (parts) => 'Q' + Math.ceil(parts.month / 3) },
+  overrideTokens: { dd: '01' },
+  defaultTokens: { MM: '00' },
 });
 ```
 
+| Option           | Default   | Purpose                                                     |
+| ---------------- | --------- | ----------------------------------------------------------- |
+| `errorPolicy`    | `'throw'` | `'silent'` never throws on bad data                         |
+| `validate`       | `'off'`   | Range checking: `'lenient'` clamps, `'strict'` rejects      |
+| `verifyLiterals` | `true`    | Verify literal separators in the input format               |
+| `strictTokens`   | `false`   | Reject unrecognised words in the output format              |
+| `yearConverter`  | —         | Expands `yy` to a full year; must return a non-negative int |
+| `customTokens`   | `{}`      | Extra tokens, usable in input **and** output formats        |
+| `overrideTokens` | `{}`      | Fixed values that win over everything                       |
+| `defaultTokens`  | `{}`      | Used when no value for the underlying field was parsed      |
+
 ### errorPolicy: `'throw' | 'silent'`
 
-- `'throw'` (default): throws on parse/validation errors
-- `'silent'`: returns raw input if nothing parsed; otherwise returns best-effort output with literal token fallback
+`'throw'` (default) raises a `DateFormatError` with a machine-readable `code`.
 
-➡️ See [`docs/formatting-behavior.md`](./docs/formatting-behavior.md)
-
-### yearConverter
-
-- Required when using `yy` (2-digit year)
-- If not provided in silent mode, raw `yy` is used as-is (`'25' → 0025`)
-
-### customTokens
-
-- Add your own tokens
+`'silent'` never throws on **bad data**: unparseable input comes back unchanged,
+and an unproducible token renders as its own name.
 
 ```js
-customTokens: {
-  Q: (p) => 'Q' + Math.ceil(p.month / 3);
-}
+formatDate('not-a-date', 'yyyyMMdd', 'dd/MM/yyyy', { errorPolicy: 'silent' });
+// → 'not-a-date'   returned untouched, not a wrong date
+
+formatDate('2025', 'yyyy', 'MM/dd/yyyy', { errorPolicy: 'silent' });
+// → 'MM/dd/2025'   literal fallback marks the gap
 ```
 
-### overrideTokens
+Silent mode still throws on **caller mistakes** — a non-string argument, an
+invalid `errorPolicy`, a `yearConverter` returning a non-integer. Those are bugs
+in the calling code, not bad data, and hiding them would be worse than failing.
 
-- Override built-in or derived tokens (e.g., force day = '01')
+### validate: `'off' | 'lenient' | 'strict'`
 
-### defaultTokens
+Off by default, because the library's contract is to make no assumptions. Turn it
+on when a pipeline needs data-quality guarantees.
 
-- Provide fallback values when parsed data is missing
+```js
+formatDate('20251345', 'yyyyMMdd', 'dd/MM/yyyy', { validate: 'strict' });
+// throws: month 13 is out of range (expected 1-12)
+
+formatDate('20250229', 'yyyyMMdd', 'dd/MM/yyyy', { validate: 'strict' });
+// throws: 2025 is not a leap year
+formatDate('20240229', 'yyyyMMdd', 'dd/MM/yyyy', { validate: 'strict' });
+// → '29/02/2024'
+```
+
+### Precedence
+
+When several sources could supply a token:
+
+1. `overrideTokens`
+2. `customTokens`
+3. value parsed from the input
+4. `defaultTokens`
+5. literal token name (silent mode)
+
+`defaultTokens` applies when the **field** has no value, not when a specific
+token name is missing — so a month parsed as `M` is not overwritten by a
+`defaultTokens.MM`.
+
+### Custom tokens
+
+Three lines, no plugins, no dependencies. Read the parsed fields off `parts`:
+
+```js
+formatDate('20250615', 'yyyyMMdd', 'yyyy-[Q]Q', {
+  customTokens: { Q: (parts) => String(Math.ceil(parts.month / 3)) },
+});
+// → '2025-Q2'
+```
+
+Custom tokens work in `inputFormat` too, and their parsed value is available as
+`parts[tokenName]`.
+
+### Bracketed literals
+
+`[text]` renders `text` verbatim, with the brackets removed and the contents
+never treated as tokens:
+
+```js
+formatDate('20250425', 'yyyyMMdd', 'yyyy [at] MM'); // → '2025 at 04'
+formatDate('2025', 'yyyy', '[yyyy]'); // → 'yyyy'
+```
+
+Literal words and separators work without brackets too. `strictTokens` is for
+catching typos, and it requires bracketing any literal word:
+
+```js
+formatDate('20250425', 'yyyyMMdd', 'ISO yyyy', { strictTokens: true });
+// throws: Unknown token "ISO"
+```
 
 ---
 
-## 🧪 Scripts
+## Robustness
+
+The library refuses to guess. Each of these is a `DateFormatError` under the
+default policy, which matters more than it sounds in a pipeline:
+
+```js
+formatDate('2025/04/25', 'yyyy-MM-dd', 'dd/MM/yyyy');
+// throws INPUT_MISMATCH — the separator did not match, so every later field
+// would have been read from the wrong offset
+
+formatDate('20250425JUNK', 'yyyyMMdd', 'dd/MM/yyyy');
+// throws INPUT_MISMATCH — trailing content is never ignored
+
+formatDate('\uFEFF20250425', 'yyyyMMdd', 'dd/MM/yyyy');
+// throws INPUT_MISMATCH — a BOM shifts the whole record
+```
+
+Every error carries a `code` (`INPUT_MISMATCH`, `UNPRODUCIBLE_TOKEN`,
+`OUT_OF_RANGE`, `INVALID_YEAR`, …) plus the offending `token` and `field`, so
+you can branch on the cause rather than matching message text.
+
+---
+
+## Scripts
 
 ```bash
-# Run tests
-yarn test
-
-# Build ESM and CJS
-yarn build
+npm test              # run the test suite
+npm run test:coverage # with coverage
+npm run lint          # eslint
+npm run typecheck     # tsc against the published types
+npm run build         # build dist/ (ESM + CJS)
+npm run verify        # everything above, plus dist verification
+npm run benchmark     # ns/op per workload and bundle size
 ```
 
----
-
-## 📚 Full Docs
-
-See [`/docs`](./docs/) for:
-
-- [`api.md`](./docs/api.md): Main `formatDate` function signature, options, and behavior
-- [`tokens.md`](./docs/tokens.md): List of supported tokens (e.g., `yyyy`, `dd`, `MMM`, `HH`) and how they're matched
-- [`examples.md`](./docs/examples.md): Real-world and edge-case formatting examples
-- [`formatting-behavior.md`](./docs/formatting-behavior.md): How `overrideTokens`, `defaultTokens`, and `errorPolicy` interact
-- [`internals.md`](./docs/internals.md): Behind-the-scenes architecture and function flow for contributors
-- [`contributing.md`](./docs/contributing.md): Development setup, code structure, and how to contribute
-- [`design.md`](./docs/design.md): Core philosophy, extensibility plan, and long-term goals
+CI runs the full chain on Node 20, 22 and 24, and verifies the built bundles
+behave identically to the sources.
 
 ---
 
-## 📓 Changelog
+## Docs
 
-See [CHANGELOG.md](./CHANGELOG.md) for release history, breaking changes, and upgrade notes.
+- [`docs/api.md`](./docs/api.md) — full `formatDate` signature, options and errors
+- [`docs/tokens.md`](./docs/tokens.md) — token table, input/output widths, matching rules
+- [`docs/examples.md`](./docs/examples.md) — worked examples and edge cases
+- [`docs/formatting-behavior.md`](./docs/formatting-behavior.md) — precedence and fallback matrix
+- [`docs/internals.md`](./docs/internals.md) — pipeline and module map for contributors
+- [`docs/contributing.md`](./docs/contributing.md) — development setup
+- [`docs/design.md`](./docs/design.md) — philosophy, trade-offs and roadmap
 
 ---
 
-## 📄 License
+## Changelog
 
-MIT © 2025
+See [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
+## License
+
+MIT © 2025 Sathvik C
